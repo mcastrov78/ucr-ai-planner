@@ -1,3 +1,63 @@
+class World:
+    __atoms = set()
+
+    def add_atom(self, atom):
+        self.__atoms.add(atom)
+
+    def atoms(self):
+        return self.__atoms
+
+class Constant:
+    __value = None
+
+    def __init__(self, value):
+        self.__value = value
+
+    def value(self):
+        return self.__value
+
+    def __str__(self):
+        return self.__value
+
+class LogicalFormula:
+    def is_modeled_by(self, world):
+        return False
+
+
+class Atom(LogicalFormula):
+    __atom = None
+
+    def __init__(self, name, *parameters):
+        self.__atom = []
+        self.__atom.append(name);
+        self.__atom.append(list(parameters));
+        print("Atom: ", self.__atom);
+
+    def is_modeled_by(self, world):
+        return self.__atom in world.atoms
+
+    def __str__(self):
+        return "%s(%s)" % (self.__atom[0], self.__atom[1])
+
+
+class Or(LogicalFormula):
+    expressions = []
+
+    def __init__(self, *expression):
+        self.__expressions = expression
+
+    def is_modeled_by(self, world):
+        result = False
+
+        for atom in self.__atoms:
+            if atom:
+                result = True
+                break
+
+        return result
+
+    def __str__(self):
+        return "or(%s, %s)" % self.__expressions
 
 
 def make_expression(ast):
@@ -43,7 +103,27 @@ def make_expression(ast):
     please refer to the documentation of the function "apply" below. Hint: A good way to represent logical formulas is to use objects that mirror the abstract syntax tree, e.g. an "And" object with 
     a "children" member, that then performs the operations described below.
     """
-    return None
+    expression = None;
+    print("\nAST: ", ast)
+    print("len(", ast, "): ", len(ast))
+
+    if len(ast) == 1:
+        return Constant(ast[0])
+    else:
+        i = 0
+        while i < len(ast):
+            print("-- i = ", i)
+            if ast[i] == "or":
+                expression = Or(make_expression(ast[i + 1]), make_expression(ast[i + 2]))
+                i = i + 3
+            elif ast[i] == "and":
+                None
+            else:
+                expression = Atom(ast[i], ast[i + 1], ast[i + 2])
+                i = i + 3
+
+    return expression
+
     
 def make_world(atoms, sets):
     """
@@ -67,7 +147,8 @@ def make_world(atoms, sets):
     to store the atoms in a set using the same representation as for atomic expressions, and the set dictioary as-is.
     """
     return None
-    
+
+
 def models(world, condition):
     """
     This function takes a world and a logical expression, and determines if the expression holds in the given world, i.e. if the world models the condition.
@@ -80,6 +161,7 @@ def models(world, condition):
     The return value of this function should be True if the condition holds in the given world, and False otherwise.
     """
     return False
+
     
 def substitute(expression, variable, value):
     """
@@ -90,7 +172,8 @@ def substitute(expression, variable, value):
     replacements for the variable that is quantified over.
     """
     return expression
-    
+
+
 def apply(world, effect):
     """
     This function takes a world, and an expression, and returns a new world, with the expression used to change the world. 
@@ -114,9 +197,17 @@ def apply(world, effect):
     return world
 
 
-
 if __name__ == "__main__":
+
+    exp = make_expression(("or", "a", "b"))
+    print("\nExpression 1: ", exp)
+    exp = make_expression(("on", "a", "b"))
+    print("\nExpression 2: ", exp)
+
     exp = make_expression(("or", ("on", "a", "b"), ("on", "a", "d")))
+    print("Expression: ", exp)
+
+    '''
     world = make_world([("on", "a", "b"), ("on", "b", "c"), ("on", "c", "d")], {})
     
     print("Should be True: ", end="")
@@ -125,7 +216,6 @@ if __name__ == "__main__":
     
     print("Should be False: ", end="")
     print(models(apply(world, change), exp))
-    
     
     print("mickey/minny example")
     world = make_world([("at", "store", "mickey"), ("at", "airport", "minny")], {"Locations": ["home", "park", "store", "airport", "theater"], "": ["home", "park", "store", "airport", "theater", "mickey", "minny"]})
@@ -155,8 +245,7 @@ if __name__ == "__main__":
     movedworld = apply(friendsworld, move_minny)
     print("Should be True: ", end="")
     print(models(movedworld, exp))
-    
-    
+
     move_both_cond = make_expression(("and", 
                                            ("at", "home", "mickey"), 
                                            ("not", ("at", "store", "mickey")), 
@@ -165,8 +254,7 @@ if __name__ == "__main__":
                                                  ("and", 
                                                       ("at", "home", "minny"), 
                                                       ("not", ("at", "store", "minny"))))))
-                                                      
-    
+
     print("Should be True: ", end="")
     print(models(apply(movedworld, move_both_cond), exp))
     
@@ -187,3 +275,4 @@ if __name__ == "__main__":
     
     print("Should be False: ", end="")
     print(models(apply(friendsworld, move_both_cond), exp1))
+    '''
