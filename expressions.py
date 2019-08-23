@@ -7,7 +7,13 @@ class World:
     def atoms(self):
         return self.__atoms
 
-class Constant:
+
+class LogicalFormula:
+    def is_modeled_by(self, world):
+        return False
+
+
+class Constant(LogicalFormula):
     __value = None
 
     def __init__(self, value):
@@ -19,45 +25,45 @@ class Constant:
     def __str__(self):
         return self.__value
 
-class LogicalFormula:
-    def is_modeled_by(self, world):
-        return False
-
 
 class Atom(LogicalFormula):
     __atom = None
 
-    def __init__(self, name, *parameters):
+    def __init__(self, name, parameters):
         self.__atom = []
-        self.__atom.append(name);
-        self.__atom.append(list(parameters));
-        print("Atom: ", self.__atom);
+        self.__atom.append(name)
+        self.__atom.append(parameters)
+        print("Atom: ", self.__atom)
 
     def is_modeled_by(self, world):
         return self.__atom in world.atoms
 
     def __str__(self):
-        return "%s(%s)" % (self.__atom[0], self.__atom[1])
+        parameters = ", ".join(self.__atom[1])
+        return "%s(%s)" % (self.__atom[0], parameters)
 
 
 class Or(LogicalFormula):
-    expressions = []
+    operands = []
 
-    def __init__(self, *expression):
-        self.__expressions = expression
+    def __init__(self, operands):
+        self.__operands = operands
 
     def is_modeled_by(self, world):
         result = False
 
-        for atom in self.__atoms:
-            if atom:
+        for operand in self.__operands:
+            if operand:
                 result = True
                 break
 
         return result
 
     def __str__(self):
-        return "or(%s, %s)" % self.__expressions
+        operands = ""
+        for operand in self.__operands:
+            operands += str(operand) + " "
+        return "or(%s)" % operands
 
 
 def make_expression(ast):
@@ -104,23 +110,22 @@ def make_expression(ast):
     a "children" member, that then performs the operations described below.
     """
     expression = None;
-    print("\nAST: ", ast)
-    print("len(", ast, "): ", len(ast))
+    print("AST: ", ast)
+    #print("len(", ast, "): ", len(ast))
 
     if len(ast) == 1:
         return Constant(ast[0])
     else:
-        i = 0
-        while i < len(ast):
-            print("-- i = ", i)
-            if ast[i] == "or":
-                expression = Or(make_expression(ast[i + 1]), make_expression(ast[i + 2]))
-                i = i + 3
-            elif ast[i] == "and":
-                None
-            else:
-                expression = Atom(ast[i], ast[i + 1], ast[i + 2])
-                i = i + 3
+        if ast[0] == "or":
+            operands = []
+            for i in range(1, len(ast)):
+                operands.append(make_expression(ast[i]))
+            expression = Or(operands)
+        else:
+            parameters = []
+            for i in range(1, len(ast)):
+                parameters.append(ast[i])
+            expression = Atom(ast[0], parameters)
 
     return expression
 
@@ -200,12 +205,12 @@ def apply(world, effect):
 if __name__ == "__main__":
 
     exp = make_expression(("or", "a", "b"))
-    print("\nExpression 1: ", exp)
+    print("Expression 1: %s\n" % exp)
     exp = make_expression(("on", "a", "b"))
-    print("\nExpression 2: ", exp)
+    print("Expression 2: %s\n" % exp)
 
     exp = make_expression(("or", ("on", "a", "b"), ("on", "a", "d")))
-    print("Expression: ", exp)
+    print("Expression 3: %s\n" % exp)
 
     '''
     world = make_world([("on", "a", "b"), ("on", "b", "c"), ("on", "c", "d")], {})
