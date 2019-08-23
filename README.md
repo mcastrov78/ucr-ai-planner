@@ -1,2 +1,2 @@
-# ucr-ia-planner
+# ucr-ai-planner
 AI Planner
