@@ -29,6 +29,9 @@ class LogicalFormula:
     def is_modeled_by(self, world):
         return False
 
+    def get_changes(self, world):
+        return None
+
 
 class Constant(LogicalFormula):
 
@@ -49,6 +52,15 @@ class Atom(LogicalFormula):
 
     def is_modeled_by(self, world):
         return self in world.atoms
+
+    def get_changes(self, world):
+        additions = set()
+        deletions = set()
+
+        if not self.is_modeled_by(world):
+            additions.add(self)
+
+        return additions, deletions
 
     def __str__(self):
         parameters = ", ".join(self.elements[1])
@@ -86,8 +98,6 @@ class And(LogicalFormula):
 
     def __init__(self, operands):
         self.operands = operands
-        self.additions = set()
-        self.deletions = set()
 
     def is_modeled_by(self, world):
         result = True
@@ -100,15 +110,15 @@ class And(LogicalFormula):
         return result
 
     def get_changes(self, world):
-        for this_operand in self.operands:
-            if isinstance(this_operand, Not):
-                if not this_operand.is_modeled_by(world):
-                    self.deletions.add(this_operand.operand)
-            else:
-                if not this_operand.is_modeled_by(world):
-                    self.additions.add(this_operand)
+        additions = set()
+        deletions = set()
 
-        return self.additions, self.deletions
+        for this_operand in self.operands:
+            changes = this_operand.get_changes(world)
+            additions = additions.union(changes[0])
+            deletions = deletions.union(changes[1])
+
+        return additions, deletions
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
@@ -122,6 +132,17 @@ class Not(LogicalFormula):
 
     def is_modeled_by(self, world):
         return not self.operand.is_modeled_by(world)
+
+    def get_changes(self, world):
+        additions = set()
+        deletions = set()
+
+        if self.operand.is_modeled_by(world):
+            deletions.add(self.operand)
+        else:
+            additions.add(self.operand)
+
+        return additions, deletions
 
     def __str__(self):
         return "NOT(%s)" % self.operand
@@ -325,13 +346,27 @@ def my_tests():
     print("Should be True: ", end="")
     print(models(world, exp))
 
-    change = make_expression(["and", ("not", ("on", "a", "b")), ("on", "a", "c")])
+    change = make_expression(("not", ("on", "a", "b")))
     print("\nExpression change: %s" % change)
     print("World: %s" % world)
     new_world = apply(world, change)
     print("New World: %s" % new_world)
     print("World: %s" % world)
 
+    change = make_expression(("on", "a", "d"))
+    print("\nExpression change: %s" % change)
+    print("World: %s" % world)
+    new_world = apply(world, change)
+    print("New World: %s" % new_world)
+    print("World: %s" % world)
+
+    change = make_expression(["and", ("not", ("on", "a", "b")), ("on", "a", "c")])
+    print("\nExpression change: %s" % change)
+    print("World: %s" % world)
+    new_world = apply(world, change)
+    print("New World: %s" % new_world)
+    print("World: %s" % world)
+    '''
     # original
     print("\n*** models(apply(world, change), exp)")
     print("world: %s" % world)
@@ -340,7 +375,7 @@ def my_tests():
     print("Should be False: ", end="")
     print(models(apply(world, change), exp))
     print("world: %s" % world)
-
+'''
 
 if __name__ == "__main__":
     my_tests()
