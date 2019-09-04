@@ -125,6 +125,25 @@ class And(LogicalFormula):
         return "AND(%s)" % operands_str
 
 
+class Imply(LogicalFormula):
+
+    def __init__(self, operands):
+        self.operands = operands
+
+    def is_modeled_by(self, world):
+        result = False
+
+        # p -> q <=> ~p v q
+        if not self.operands[0].is_modeled_by(world) or self.operands[1].is_modeled_by(world):
+            result = True
+
+        return result
+
+    def __str__(self):
+        operands_str = ", ".join("%s" % operand for operand in self.operands)
+        return "IMPLY(%s)" % operands_str
+
+
 class Not(LogicalFormula):
 
     def __init__(self, operand):
@@ -212,6 +231,13 @@ def make_expression(ast):
                 # each operand can be an expression on its own
                 operands.append(make_expression(ast[i]))
             expression = And(operands)
+        elif ast[0] == "imply":
+            # process IMPLY expression
+            operands = []
+            # each operand can be an expression on its own
+            operands.append(make_expression(ast[1]))
+            operands.append(make_expression(ast[2]))
+            expression = Imply(operands)
         elif ast[0] == "not":
             # process NOT expression
             # each operand can be an expression on its own
@@ -366,7 +392,7 @@ def my_tests():
     new_world = apply(world, change)
     print("New World: %s" % new_world)
     print("World: %s" % world)
-    '''
+
     # original
     print("\n*** models(apply(world, change), exp)")
     print("world: %s" % world)
@@ -375,7 +401,17 @@ def my_tests():
     print("Should be False: ", end="")
     print(models(apply(world, change), exp))
     print("world: %s" % world)
-'''
+
+    expImply = make_expression(("imply", "a", "b"))
+    print("\nExpression expImply: %s" % expImply)
+
+    expImply2 = make_expression(("imply", ("on", "a", "b"), ("on", "a", "d")))
+    print("\nExpression expImply2: %s" % expImply2)
+    print("Models expImply2 (%s): %s" % (expImply2, models(world, expImply2)))
+
+    expImply3 = make_expression(("imply", ("on", "a", "d"), ("on", "a", "b")))
+    print("\nExpression expImply3: %s" % expImply3)
+    print("Models expImply3 (%s): %s" % (expImply3, models(world, expImply3)))
 
 if __name__ == "__main__":
     my_tests()
