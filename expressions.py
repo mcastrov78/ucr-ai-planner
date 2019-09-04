@@ -1,25 +1,28 @@
 class World:
-    __atoms = set()
-    __sets = {}
 
     def __init__(self, atoms, sets):
-        for this_atom in atoms:
-            self.__atoms.add(make_expression(this_atom))
-
-        self.__sets = sets
-
-    def atoms(self):
-        return self.__atoms
-
-    def sets(self):
-        return self.__sets
+        self.atoms = atoms
+        self.sets = sets
 
     def models(self, expression):
         return expression.is_modeled_by(self)
 
+    def apply(self, effect):
+        new_atoms = self.atoms
+        new_sets = self.sets
+
+        #print("effect: %s" % effect)
+        changes = effect.get_changes(self)
+
+        new_atoms = new_atoms.union(changes[0])
+        new_atoms = new_atoms.difference(changes[1])
+        new_world = World(new_atoms, new_sets)
+
+        return new_world
+
     def __str__(self):
-        atoms = ", ".join("%s" % atom for atom in self.__atoms)
-        return atoms
+        atoms_str = ", ".join("%s" % atom for atom in self.atoms)
+        return atoms_str
 
 
 class LogicalFormula:
@@ -28,55 +31,46 @@ class LogicalFormula:
 
 
 class Constant(LogicalFormula):
-    __value = None
 
     def __init__(self, value):
-        self.__value = value
-
-    def value(self):
-        return self.__value
+        self.value = value
 
     def __str__(self):
-        return self.__value
+        return self.value
 
 
 class Atom(LogicalFormula):
-    __elements = None
 
     def __init__(self, name, parameters):
-        self.__elements = []
-        self.__elements.append(name)
-        self.__elements.append(parameters)
-        print("Atom: ", self.__elements)
-
-    def elements(self):
-        return self.__elements
+        self.elements = []
+        self.elements.append(name)
+        self.elements.append(parameters)
+        #print("Atom: ", self.elements)
 
     def is_modeled_by(self, world):
-        return self in world.atoms()
+        return self in world.atoms
 
     def __str__(self):
-        parameters = ", ".join(self.__elements[1])
-        return "%s(%s)" % (self.__elements[0], parameters)
+        parameters = ", ".join(self.elements[1])
+        return "%s(%s)" % (self.elements[0], parameters)
 
     def __eq__(self, other):
-        return self.__elements[0] == other.elements()[0] and \
-               self.__elements[1] == other.elements()[1]
+        return self.elements[0] == other.elements[0] and \
+               self.elements[1] == other.elements[1]
 
     def __hash__(self):
-        return hash((self.__elements[0], tuple(self.__elements[1])))
+        return hash((self.elements[0], tuple(self.elements[1])))
 
 
 class Or(LogicalFormula):
-    __operands = []
 
     def __init__(self, operands):
-        self.__operands = operands
+        self.operands = operands
 
     def is_modeled_by(self, world):
         result = False
 
-        for operand in self.__operands:
+        for operand in self.operands:
             if operand.is_modeled_by(world):
                 result = True
                 break
@@ -84,42 +78,53 @@ class Or(LogicalFormula):
         return result
 
     def __str__(self):
-        parameters = ", ".join("%s" % parameter for parameter in self.__operands)
-        return "OR(%s)" % parameters
+        operands_str = ", ".join("%s" % operand for operand in self.operands)
+        return "OR(%s)" % operands_str
 
 
 class And(LogicalFormula):
-    __operands = []
 
     def __init__(self, operands):
-        self.__operands = operands
+        self.operands = operands
+        self.additions = set()
+        self.deletions = set()
 
     def is_modeled_by(self, world):
         result = True
 
-        for operand in self.__operands:
+        for operand in self.operands:
             if not operand.is_modeled_by(world):
                 result = False
                 break
 
         return result
 
+    def get_changes(self, world):
+        for this_operand in self.operands:
+            if isinstance(this_operand, Not):
+                if not this_operand.is_modeled_by(world):
+                    self.deletions.add(this_operand.operand)
+            else:
+                if not this_operand.is_modeled_by(world):
+                    self.additions.add(this_operand)
+
+        return self.additions, self.deletions
+
     def __str__(self):
-        parameters = ", ".join("%s" % parameter for parameter in self.__operands)
-        return "AND(%s)" % parameters
+        operands_str = ", ".join("%s" % operand for operand in self.operands)
+        return "AND(%s)" % operands_str
 
 
 class Not(LogicalFormula):
-    __operand = None
 
     def __init__(self, operand):
-        self.__operand = operand
+        self.operand = operand
 
     def is_modeled_by(self, world):
-        return not self.__operand.is_modeled_by(world)
+        return not self.operand.is_modeled_by(world)
 
     def __str__(self):
-        return "NOT(%s)" % self.__operand
+        return "NOT(%s)" % self.operand
 
 
 def make_expression(ast):
@@ -221,7 +226,11 @@ def make_world(atoms, sets):
     Similar to make_expression, this function returns an arbitrary python object that will only be used to pass to the functions below. Hint: It may be beneficial 
     to store the atoms in a set using the same representation as for atomic expressions, and the set dictioary as-is.
     """
-    return World(atoms, sets)
+    expressions = set()
+    for atom in atoms:
+        expressions.add(make_expression(atom))
+
+    return World(expressions, sets)
 
 
 def models(world, condition):
@@ -269,58 +278,83 @@ def apply(world, effect):
     
     Hint: If your world stores the atoms in a set, you can determine the change of the effect as two sets: an add set and a delete set, and get the atoms for the new world using basic set operations.
     """
-    return world
+    return world.apply(effect)
 
-
-if __name__ == "__main__":
-
+def my_tests():
     expOr = make_expression(("or", "a", "b"))
-    print("Expression expOr: %s\n" % expOr)
+    print("\nExpression expOr: %s" % expOr)
     expOn = make_expression(("on", "a", "b"))
-    print("Expression expOn: %s\n" % expOn)
+    print("\nExpression expOn: %s" % expOn)
 
     # original
     exp = make_expression(("or", ("on", "a", "b"), ("on", "a", "d")))
-    print("Expression exp: %s\n" % exp)
+    print("\nExpression exp: %s" % exp)
 
     # original
     world = make_world([("on", "a", "b"), ("on", "b", "c"), ("on", "c", "d")], {})
-    print("World: %s\n" % world)
-    print("Models exp: %s\n" % models(world, exp))
-    print("Models expOn: %s\n" % models(world, expOn))
+    print("\nWorld: %s" % world)
+    print("Models exp (%s): %s" % (exp, models(world, exp)))
+    print("Models expOn (%s): %s" % (expOn, models(world, expOn)))
 
     expOn2 = make_expression(("on", "a", "d"))
-    print("Expression expOn2: %s\n" % expOn2)
-    print("Models expOn2: %s\n" % models(world, expOn2))
+    print("\nExpression expOn2: %s" % expOn2)
+    print("Models expOn2: %s" % models(world, expOn2))
 
     expAnd = make_expression(("and", "a", "b"))
-    print("Expression expAnd: %s\n" % expAnd)
+    print("\nExpression expAnd: %s" % expAnd)
 
     expAnd2 = make_expression(("and", ("on", "a", "b"), ("on", "a", "d")))
-    print("Expression expAnd2: %s\n" % expAnd2)
-    print("Models expAnd2: %s\n" % models(world, expAnd2))
+    print("Expression expAnd2: %s" % expAnd2)
+    print("Models expAnd2: %s" % models(world, expAnd2))
 
     expNot = make_expression(("not", "a"))
-    print("Expression expNot: %s\n" % expNot)
-    print("Models expNot: %s\n" % models(world, expNot))
+    print("\nExpression expNot: %s" % expNot)
+    print("Models expNot (%s): %s" % (expNot, models(world, expNot)))
 
     expNot2 = make_expression(("not", ("on", "a", "b")))
-    print("Expression expNot2: %s\n" % expNot2)
-    print("Models expNot2: %s\n" % models(world, expNot2))
+    print("\nExpression expNot2: %s" % expNot2)
+    print("Models expNot2: %s" % models(world, expNot2))
 
     expNot3 = make_expression(("not", ("on", "a", "e")))
-    print("Expression expNot3: %s\n" % expNot3)
-    print("Models expNot3: %s\n" % models(world, expNot3))
+    print("\nExpression expNot3: %s" % expNot3)
+    print("Models expNot3: %s" % models(world, expNot3))
 
     # original
+    print("\n*** exp: %s" % exp)
+    print("models(world, exp)")
+    print("Should be True: ", end="")
+    print(models(world, exp))
+
+    change = make_expression(["and", ("not", ("on", "a", "b")), ("on", "a", "c")])
+    print("\nExpression change: %s" % change)
+    print("World: %s" % world)
+    new_world = apply(world, change)
+    print("New World: %s" % new_world)
+    print("World: %s" % world)
+
+    # original
+    print("\n*** models(apply(world, change), exp)")
+    print("world: %s" % world)
+    print("change: %s" % change)
+    print("exp: %s" % exp)
+    print("Should be False: ", end="")
+    print(models(apply(world, change), exp))
+    print("world: %s" % world)
+
+
+if __name__ == "__main__":
+    my_tests()
+    '''
+    exp = make_expression(("or", ("on", "a", "b"), ("on", "a", "d")))
+    world = make_world([("on", "a", "b"), ("on", "b", "c"), ("on", "c", "d")], {})
+
     print("Should be True: ", end="")
     print(models(world, exp))
     change = make_expression(["and", ("not", ("on", "a", "b")), ("on", "a", "c")])
-    
+
     print("Should be False: ", end="")
-    '''
     print(models(apply(world, change), exp))
-    
+
     print("mickey/minny example")
     world = make_world([("at", "store", "mickey"), ("at", "airport", "minny")], {"Locations": ["home", "park", "store", "airport", "theater"], "": ["home", "park", "store", "airport", "theater", "mickey", "minny"]})
     exp = make_expression(("and", 
