@@ -44,6 +44,15 @@ class Constant(LogicalFormula):
         return self.value
 
 
+class VariableSpec:
+    def __init__(self, elements):
+        self.elements = elements
+
+    def __str__(self):
+        parameters = ", ".join(self.elements)
+        return "VariableSpec(%s)" % parameters
+
+
 class Atom(LogicalFormula):
     def __init__(self, name, parameters):
         self.elements = []
@@ -79,15 +88,6 @@ class Atom(LogicalFormula):
         return hash((self.elements[0], tuple(self.elements[1])))
 
 
-class VariableSpec:
-    def __init__(self, elements):
-        self.elements = elements
-
-    def __str__(self):
-        parameters = ", ".join(self.elements)
-        return "VariableSpec(%s)" % (parameters)
-
-
 class Or(LogicalFormula):
 
     def __init__(self, operands):
@@ -102,6 +102,10 @@ class Or(LogicalFormula):
                 break
 
         return result
+
+    def substitute(self, variable, value):
+        for operand in self.operands:
+            operand.substitute(variable, value)
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
@@ -123,6 +127,10 @@ class And(LogicalFormula):
 
         return result
 
+    def substitute(self, variable, value):
+        for operand in self.operands:
+            operand.substitute(variable, value)
+
     def get_changes(self, world):
         additions = set()
         deletions = set()
@@ -140,7 +148,6 @@ class And(LogicalFormula):
 
 
 class Imply(LogicalFormula):
-
     def __init__(self, operands):
         self.operands = operands
 
@@ -152,6 +159,10 @@ class Imply(LogicalFormula):
             result = True
 
         return result
+
+    def substitute(self, variable, value):
+        self.operands[0].substitute(variable, value)
+        self.operands[1].substitute(variable, value)
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
@@ -177,31 +188,35 @@ class ForAll(LogicalFormula):
         self.operands = operands
 
     def is_modeled_by(self, world):
-        # variable specification of the form("?s", "-", "Stories")
-        print("FORALL var spec: %s" % self.operands[0])
-        print("FORALL expression: %s" % self.operands[1])
-
-        thisSet = world.sets[self.operands[0].elements[2]]
-        print("FORALL set: %s" % thisSet)
-
         expanded_list = []
-        for value in thisSet:
+        for value in world.sets[self.operands[0].elements[2]]:
+            # make deep copy, substitute and add to list
             new_object = copy.deepcopy(self.operands[1])
             new_object.substitute(self.operands[0].elements[0], value)
-            print("newObject: %s" % new_object)
-
             expanded_list.append(new_object)
-
-        print("expanded_list: %s" % expanded_list)
-        andExpression = And(expanded_list)
-        print("FORALL andExpression: %s" % andExpression)
-        print("FORALL models andExpression: %s" % world.models(andExpression))
-
-        return None
+        return And(expanded_list)
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
         return "FORALL(%s)" % operands_str
+
+
+class Exists(LogicalFormula):
+    def __init__(self, operands):
+        self.operands = operands
+
+    def is_modeled_by(self, world):
+        expanded_list = []
+        for value in world.sets[self.operands[0].elements[2]]:
+            # make deep copy, substitute and add to list
+            new_object = copy.deepcopy(self.operands[1])
+            new_object.substitute(self.operands[0].elements[0], value)
+            expanded_list.append(new_object)
+        return Or(expanded_list)
+
+    def __str__(self):
+        operands_str = ", ".join("%s" % operand for operand in self.operands)
+        return "EXISTS(%s)" % operands_str
 
 
 class Not(LogicalFormula):
@@ -270,48 +285,49 @@ def make_expression(ast):
     a "children" member, that then performs the operations described below.
     """
     expression = None;
-    print("AST: ", ast)
+    #print("AST: ", ast)
 
     # CHECK THIS ==1 !!!
     if len(ast) == 1:
         return Constant(ast[0])
     else:
+        operands = []
         if ast[0] == "or":
             # process OR expression
-            operands = []
             for i in range(1, len(ast)):
                 # each operand can be an expression on its own
                 operands.append(make_expression(ast[i]))
             expression = Or(operands)
         elif ast[0] == "and":
             # process AND expression
-            operands = []
             for i in range(1, len(ast)):
                 # each operand can be an expression on its own
                 operands.append(make_expression(ast[i]))
             expression = And(operands)
         elif ast[0] == "imply":
             # process IMPLY expression
-            operands = []
             # each operand can be an expression on its own
-            operands.append(make_expression(ast[1]))
-            operands.append(make_expression(ast[2]))
+            operands = [make_expression(ast[1]), make_expression(ast[2])]
             expression = Imply(operands)
         elif ast[0] == "when":
             # process WHEN expression
-            operands = []
             # each operand can be an expression on its own
-            operands.append(make_expression(ast[1]))
-            operands.append(make_expression(ast[2]))
+            operands = [make_expression(ast[1]), make_expression(ast[2])]
             expression = When(operands)
         elif ast[0] == "forall":
             # process FOR ALL expression
-            operands = []
-            operands.append(make_expression(ast[1]))
-            operands.append(make_expression(ast[2]))
+            operands = [make_expression(ast[1]), make_expression(ast[2])]
+            expression = ForAll(operands)
+        elif ast[0] == "exists":
+            # process EXISTS expression
+            operands = [make_expression(ast[1]), make_expression(ast[2])]
+            expression = Exists(operands)
+        elif ast[0] == "forall":
+            # process FOR ALL expression
+            operands = [make_expression(ast[1]), make_expression(ast[2])]
             expression = ForAll(operands)
         elif ast[0].startswith("?"):
-            parameters = []
+            # process variable spec
             expression = VariableSpec((ast[0], ast[1], ast[2]))
         elif ast[0] == "not":
             # process NOT expression
@@ -403,6 +419,8 @@ def apply(world, effect):
     return world.apply(effect)
 
 def my_tests():
+    print("*********** START OF my_tests ***********")
+
     # OR and Atom TESTS
     expOr = make_expression(("or", "a", "b"))
     print("\nExpression expOr: %s" % expOr)
@@ -507,26 +525,53 @@ def my_tests():
     print("world: %s" % world)
     print("expWhen3 (%s) world: %s" % (expWhen3, expWhen3.apply(world)))
 
+    # FORALL TESTS
     world = make_world([("at", "store", "mickey"), ("at", "airport", "minny")],
                        {"Locations": ["home", "park", "store", "airport", "theater"],
                         "": ["home", "park", "store", "airport", "theater", "mickey", "minny"]})
 
-    world = make_world([("at", "home", "mickey"), ("at", "park", "mickey"), ("at", "store", "mickey"), ("at", "airport", "mickey"), ("at", "theater", "mickeys")],
+    world2 = make_world([("at", "home", "mickey"), ("at", "park", "mickey"), ("at", "store", "mickey"), ("at", "airport", "mickey"), ("at", "theater", "mickey")],
                        {"Locations": ["home", "park", "store", "airport", "theater"],
                         "": ["home", "park", "store", "airport", "theater", "mickey", "minny"]})
 
     expForAll = make_expression(("forall", ("?l", "-", "Locations"), (("at", "?l", "mickey"))))
     print("\nExpression expForAll: %s" % expForAll)
-    expForAll.is_modeled_by(world)
+    expForAll.is_modeled_by(world2)
 
-    #expForAll2 = make_expression(("forall", ("?l", "-", "Locations"), ("imply", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
-    #print("\nExpression expForAll: %s" % expForAll2)
-    #expForAll2.is_modeled_by(world)
+    expForAll2 = make_expression(("forall", ("?l", "-", "Locations"), ("imply", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
+    print("\nExpression expForAll2: %s" % expForAll2)
+    expForAll2.is_modeled_by(world)
 
+    expForAllAnd = make_expression(("forall", ("?l", "-", "Locations"), ("and", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
+    print("\nExpression expForAllAnd: %s" % expForAllAnd)
+    expForAllAnd.is_modeled_by(world)
+
+    expForAllOr = make_expression(("forall", ("?l", "-", "Locations"), ("or", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
+    print("\nExpression expForAllOr: %s" % expForAllOr)
+    expForAllOr.is_modeled_by(world)
+
+    # EXISTS TESTS
+    expForExists = make_expression(("exists", ("?l", "-", "Locations"), (("at", "?l", "mickey"))))
+    print("\nExpression expForExists: %s" % expForExists)
+    expForExists.is_modeled_by(world)
+
+    expForExists2 = make_expression(("exists", ("?l", "-", "Locations"), ("imply", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
+    print("\nExpression expForExists2: %s" % expForExists2)
+    expForExists2.is_modeled_by(world)
+
+    expForExistsAnd = make_expression(("exists", ("?l", "-", "Locations"), ("and", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
+    print("\nExpression expForExistsAnd: %s" % expForExistsAnd)
+    expForExistsAnd.is_modeled_by(world)
+
+    expForExistsOr = make_expression(("exists", ("?l", "-", "Locations"), ("or", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
+    print("\nExpression expForExistsOr: %s" % expForExistsOr)
+    expForExistsOr.is_modeled_by(world)
+
+    print("*********** END OF my_tests ***********\n")
 
 if __name__ == "__main__":
     my_tests()
-    '''
+
     exp = make_expression(("or", ("on", "a", "b"), ("on", "a", "d")))
     world = make_world([("on", "a", "b"), ("on", "b", "c"), ("on", "c", "d")], {})
 
@@ -556,8 +601,12 @@ if __name__ == "__main__":
                                     
     print("Should be True: ", end="")
     print(models(world, exp))
+    '''
     become_friends = make_expression(("friends", "mickey", "minny"))
+    print("become_friends: %s" % become_friends)
     friendsworld = apply(world, become_friends)
+    print("friendsworld: %s" % friendsworld)
+    print("exp: %s" % exp)
     print("Should be False: ", end="")
     print(models(friendsworld, exp))
     move_minny = make_expression(("and", ("at", "store", "minny"), ("not", ("at", "airport", "minny"))))
@@ -565,7 +614,7 @@ if __name__ == "__main__":
     movedworld = apply(friendsworld, move_minny)
     print("Should be True: ", end="")
     print(models(movedworld, exp))
-
+    
     move_both_cond = make_expression(("and", 
                                            ("at", "home", "mickey"), 
                                            ("not", ("at", "store", "mickey")), 
