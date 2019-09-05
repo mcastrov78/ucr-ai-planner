@@ -1,5 +1,7 @@
-class World:
+import copy
 
+
+class World:
     def __init__(self, atoms, sets):
         self.atoms = atoms
         self.sets = sets
@@ -10,8 +12,6 @@ class World:
     def apply(self, effect):
         new_atoms = self.atoms
         new_sets = self.sets
-
-        #print("effect: %s" % effect)
         changes = effect.get_changes(self)
 
         new_atoms = new_atoms.union(changes[0])
@@ -32,9 +32,11 @@ class LogicalFormula:
     def get_changes(self, world):
         return None
 
+    def substitute(self, variable, value):
+        return self
+
 
 class Constant(LogicalFormula):
-
     def __init__(self, value):
         self.value = value
 
@@ -43,12 +45,10 @@ class Constant(LogicalFormula):
 
 
 class Atom(LogicalFormula):
-
     def __init__(self, name, parameters):
         self.elements = []
         self.elements.append(name)
         self.elements.append(parameters)
-        #print("Atom: ", self.elements)
 
     def is_modeled_by(self, world):
         return self in world.atoms
@@ -62,6 +62,11 @@ class Atom(LogicalFormula):
 
         return additions, deletions
 
+    def substitute(self, variable, value):
+        for i in range(len(self.elements[1])):
+            if self.elements[1][i] == variable:
+                self.elements[1][i] = value;
+
     def __str__(self):
         parameters = ", ".join(self.elements[1])
         return "%s(%s)" % (self.elements[0], parameters)
@@ -72,6 +77,15 @@ class Atom(LogicalFormula):
 
     def __hash__(self):
         return hash((self.elements[0], tuple(self.elements[1])))
+
+
+class VariableSpec:
+    def __init__(self, elements):
+        self.elements = elements
+
+    def __str__(self):
+        parameters = ", ".join(self.elements)
+        return "VariableSpec(%s)" % (parameters)
 
 
 class Or(LogicalFormula):
@@ -144,8 +158,53 @@ class Imply(LogicalFormula):
         return "IMPLY(%s)" % operands_str
 
 
-class Not(LogicalFormula):
+class When(LogicalFormula):
+    def __init__(self, operands):
+        self.operands = operands
 
+    def apply(self, world):
+        if self.operands[0].is_modeled_by(world):
+            return world.apply(self.operands[1])
+        return world
+
+    def __str__(self):
+        operands_str = ", ".join("%s" % operand for operand in self.operands)
+        return "WHEN(%s)" % operands_str
+
+
+class ForAll(LogicalFormula):
+    def __init__(self, operands):
+        self.operands = operands
+
+    def is_modeled_by(self, world):
+        # variable specification of the form("?s", "-", "Stories")
+        print("FORALL var spec: %s" % self.operands[0])
+        print("FORALL expression: %s" % self.operands[1])
+
+        thisSet = world.sets[self.operands[0].elements[2]]
+        print("FORALL set: %s" % thisSet)
+
+        expanded_list = []
+        for value in thisSet:
+            new_object = copy.deepcopy(self.operands[1])
+            new_object.substitute(self.operands[0].elements[0], value)
+            print("newObject: %s" % new_object)
+
+            expanded_list.append(new_object)
+
+        print("expanded_list: %s" % expanded_list)
+        andExpression = And(expanded_list)
+        print("FORALL andExpression: %s" % andExpression)
+        print("FORALL models andExpression: %s" % world.models(andExpression))
+
+        return None
+
+    def __str__(self):
+        operands_str = ", ".join("%s" % operand for operand in self.operands)
+        return "FORALL(%s)" % operands_str
+
+
+class Not(LogicalFormula):
     def __init__(self, operand):
         self.operand = operand
 
@@ -211,7 +270,7 @@ def make_expression(ast):
     a "children" member, that then performs the operations described below.
     """
     expression = None;
-    #print("AST: ", ast)
+    print("AST: ", ast)
 
     # CHECK THIS ==1 !!!
     if len(ast) == 1:
@@ -238,6 +297,22 @@ def make_expression(ast):
             operands.append(make_expression(ast[1]))
             operands.append(make_expression(ast[2]))
             expression = Imply(operands)
+        elif ast[0] == "when":
+            # process WHEN expression
+            operands = []
+            # each operand can be an expression on its own
+            operands.append(make_expression(ast[1]))
+            operands.append(make_expression(ast[2]))
+            expression = When(operands)
+        elif ast[0] == "forall":
+            # process FOR ALL expression
+            operands = []
+            operands.append(make_expression(ast[1]))
+            operands.append(make_expression(ast[2]))
+            expression = ForAll(operands)
+        elif ast[0].startswith("?"):
+            parameters = []
+            expression = VariableSpec((ast[0], ast[1], ast[2]))
         elif ast[0] == "not":
             # process NOT expression
             # each operand can be an expression on its own
@@ -328,6 +403,7 @@ def apply(world, effect):
     return world.apply(effect)
 
 def my_tests():
+    # OR and Atom TESTS
     expOr = make_expression(("or", "a", "b"))
     print("\nExpression expOr: %s" % expOr)
     expOn = make_expression(("on", "a", "b"))
@@ -337,6 +413,7 @@ def my_tests():
     exp = make_expression(("or", ("on", "a", "b"), ("on", "a", "d")))
     print("\nExpression exp: %s" % exp)
 
+    # World and Models TESTS
     # original
     world = make_world([("on", "a", "b"), ("on", "b", "c"), ("on", "c", "d")], {})
     print("\nWorld: %s" % world)
@@ -354,6 +431,7 @@ def my_tests():
     print("Expression expAnd2: %s" % expAnd2)
     print("Models expAnd2: %s" % models(world, expAnd2))
 
+    # NOT TESTS
     expNot = make_expression(("not", "a"))
     print("\nExpression expNot: %s" % expNot)
     print("Models expNot (%s): %s" % (expNot, models(world, expNot)))
@@ -372,6 +450,7 @@ def my_tests():
     print("Should be True: ", end="")
     print(models(world, exp))
 
+    # APPLY TESTS
     change = make_expression(("not", ("on", "a", "b")))
     print("\nExpression change: %s" % change)
     print("World: %s" % world)
@@ -402,6 +481,7 @@ def my_tests():
     print(models(apply(world, change), exp))
     print("world: %s" % world)
 
+    # IMPLY TESTS
     expImply = make_expression(("imply", "a", "b"))
     print("\nExpression expImply: %s" % expImply)
 
@@ -412,6 +492,37 @@ def my_tests():
     expImply3 = make_expression(("imply", ("on", "a", "d"), ("on", "a", "b")))
     print("\nExpression expImply3: %s" % expImply3)
     print("Models expImply3 (%s): %s" % (expImply3, models(world, expImply3)))
+
+    # WHEN TESTS
+    expWhen = make_expression(("when", "a", "b"))
+    print("\nExpression expWhen: %s" % expWhen)
+
+    expWhen2 = make_expression(("when", ("on", "a", "b"), ("on", "a", "d")))
+    print("\nExpression expWhen2: %s" % expWhen2)
+    print("world: %s" % world)
+    print("expImply2 (%s) world: %s" % (expWhen2, expWhen2.apply(world)))
+
+    expWhen3 = make_expression(("when", ("on", "b", "b"), ("on", "a", "d")))
+    print("\nExpression expWhen3: %s" % expWhen3)
+    print("world: %s" % world)
+    print("expWhen3 (%s) world: %s" % (expWhen3, expWhen3.apply(world)))
+
+    world = make_world([("at", "store", "mickey"), ("at", "airport", "minny")],
+                       {"Locations": ["home", "park", "store", "airport", "theater"],
+                        "": ["home", "park", "store", "airport", "theater", "mickey", "minny"]})
+
+    world = make_world([("at", "home", "mickey"), ("at", "park", "mickey"), ("at", "store", "mickey"), ("at", "airport", "mickey"), ("at", "theater", "mickeys")],
+                       {"Locations": ["home", "park", "store", "airport", "theater"],
+                        "": ["home", "park", "store", "airport", "theater", "mickey", "minny"]})
+
+    expForAll = make_expression(("forall", ("?l", "-", "Locations"), (("at", "?l", "mickey"))))
+    print("\nExpression expForAll: %s" % expForAll)
+    expForAll.is_modeled_by(world)
+
+    #expForAll2 = make_expression(("forall", ("?l", "-", "Locations"), ("imply", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
+    #print("\nExpression expForAll: %s" % expForAll2)
+    #expForAll2.is_modeled_by(world)
+
 
 if __name__ == "__main__":
     my_tests()
