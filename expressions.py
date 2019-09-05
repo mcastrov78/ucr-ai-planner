@@ -178,6 +178,17 @@ class When(LogicalFormula):
             return world.apply(self.operands[1])
         return world
 
+    def get_changes(self, world):
+        additions = set()
+        deletions = set()
+
+        if self.operands[0].is_modeled_by(world):
+            changes = self.operands[1].get_changes(world)
+            additions = additions.union(changes[0])
+            deletions = deletions.union(changes[1])
+
+        return additions, deletions
+
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
         return "WHEN(%s)" % operands_str
@@ -194,7 +205,11 @@ class ForAll(LogicalFormula):
             new_object = copy.deepcopy(self.operands[1])
             new_object.substitute(self.operands[0].elements[0], value)
             expanded_list.append(new_object)
-        return And(expanded_list)
+
+        for_all_and_exp = And(expanded_list)
+        print("for_all_and_exp: %s" % for_all_and_exp)
+
+        return for_all_and_exp.is_modeled_by(world)
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
@@ -212,7 +227,12 @@ class Exists(LogicalFormula):
             new_object = copy.deepcopy(self.operands[1])
             new_object.substitute(self.operands[0].elements[0], value)
             expanded_list.append(new_object)
-        return Or(expanded_list)
+
+        exists_or_exp = Or(expanded_list)
+        print("exists_or_exp: %s" % exists_or_exp)
+
+        return exists_or_exp.is_modeled_by(world)
+
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
@@ -601,20 +621,23 @@ if __name__ == "__main__":
                                     
     print("Should be True: ", end="")
     print(models(world, exp))
-    '''
+
     become_friends = make_expression(("friends", "mickey", "minny"))
-    print("become_friends: %s" % become_friends)
+    print("\nbecome_friends: %s" % become_friends)
     friendsworld = apply(world, become_friends)
     print("friendsworld: %s" % friendsworld)
     print("exp: %s" % exp)
     print("Should be False: ", end="")
     print(models(friendsworld, exp))
+
     move_minny = make_expression(("and", ("at", "store", "minny"), ("not", ("at", "airport", "minny"))))
-    
+    print("\nmove_minny: %s" % move_minny)
     movedworld = apply(friendsworld, move_minny)
+    print("movedworld: %s" % movedworld)
+    print("exp: %s" % exp)
     print("Should be True: ", end="")
     print(models(movedworld, exp))
-    
+
     move_both_cond = make_expression(("and", 
                                            ("at", "home", "mickey"), 
                                            ("not", ("at", "store", "mickey")), 
@@ -623,13 +646,13 @@ if __name__ == "__main__":
                                                  ("and", 
                                                       ("at", "home", "minny"), 
                                                       ("not", ("at", "store", "minny"))))))
-
+    print("\nmove_both_cond: %s" % move_both_cond)
     print("Should be True: ", end="")
     print(models(apply(movedworld, move_both_cond), exp))
     
     print("Should be False: ", end="")
     print(models(apply(friendsworld, move_both_cond), exp))
-    
+    '''
     exp1 = make_expression(("forall", 
                             ("?l", "-", "Locations"),
                             ("forall",
