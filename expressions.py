@@ -11,15 +11,16 @@ class World:
         return expression.is_modeled_by(self)
 
     def apply(self, effect):
+        # get deep copies of the atoms and sets for the new world
         new_atoms = copy.deepcopy(self.atoms)
         new_sets = copy.deepcopy(self.sets)
-        changes = effect.get_changes(self)
 
+        # apply additions and deletions vaused by the effect to atoms in new world
+        changes = effect.get_changes(self)
         new_atoms = new_atoms.union(changes[0])
         new_atoms = new_atoms.difference(changes[1])
-        new_world = World(new_atoms, new_sets)
 
-        return new_world
+        return World(new_atoms, new_sets)
 
     def __str__(self):
         atoms_str = ", ".join("%s" % atom for atom in self.atoms)
@@ -441,7 +442,10 @@ def substitute(expression, variable, value):
     Do *not* replace the variable in-place, always return a new expression object. When you implement the quantifiers, you should use this same functionality to expand the formula to all possible 
     replacements for the variable that is quantified over.
     """
-    return expression.substitute(variable, value)
+    new_expression = copy.deepcopy(expression)
+    new_expression.substitute(variable, value)
+
+    return new_expression
 
 
 def apply(world, effect):
@@ -652,6 +656,17 @@ def my_tests():
     expForExistsVar2 = make_expression(("exists", ("?s",), ("knows", "holmes", "?s")))
     print("\nExpression expForExistsVar2: %s" % expForExistsVar2)
     print("expForExistsVar2.is_modeled_by: %s" % expForExistsVar2.is_modeled_by(holmes_world))
+
+    # Testing SUBSTITUTE
+    expAndSubstitute = make_expression(("and", ("at", "?l", "mickey"), ("at", "?l", "minny")))
+    expAndSubstitute2 = substitute(expAndSubstitute, "?l", "home")
+    print("\nExpression expAndSubstitute: %s" % expAndSubstitute)
+    print("Expression expAndSubstitute2: %s" % expAndSubstitute2)
+
+    expOrSubstitute = make_expression(("or", ("at", "?l", "mickey"), ("at", "?l", "minny")))
+    expOrSubstitute2 = substitute(expOrSubstitute, "?l", "home")
+    print("\nExpression expOrSubstitute: %s" % expOrSubstitute)
+    print("Expression expOrSubstitute2: %s" % expOrSubstitute2)
 
     print("\n*********** END OF my_tests ***********\n")
 
