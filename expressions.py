@@ -15,7 +15,7 @@ class World:
         new_atoms = copy.deepcopy(self.atoms)
         new_sets = copy.deepcopy(self.sets)
 
-        # apply additions and deletions vaused by the effect to atoms in new world
+        # apply additions and deletions caused by the effect to atoms in new world
         changes = effect.get_changes(self)
         new_atoms = new_atoms.union(changes[0])
         new_atoms = new_atoms.difference(changes[1])
