@@ -45,7 +45,8 @@ class Constant(LogicalFormula):
 
     def substitute(self, variable, value):
         if self.value == variable:
-            self.value = value
+            return Constant(value)
+        return self
 
     def __str__(self):
         return self.value
@@ -87,9 +88,10 @@ class Atom(LogicalFormula):
         return additions, deletions
 
     def substitute(self, variable, value):
+        new_elements = []
         for i in range(len(self.elements[1])):
-            if self.elements[1][i] == variable:
-                self.elements[1][i] = value
+            new_elements.append(self.elements[1][i].substitute(variable, value))
+        return Atom(self.elements[0], new_elements)
 
     def __str__(self):
         parameters = ", ".join("%s" % parameter for parameter in self.elements[1])
@@ -119,8 +121,10 @@ class Or(LogicalFormula):
         return result
 
     def substitute(self, variable, value):
+        new_operands = []
         for operand in self.operands:
-            operand.substitute(variable, value)
+            new_operands.append(operand.substitute(variable, value))
+        return Or(new_operands)
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
@@ -154,8 +158,10 @@ class And(LogicalFormula):
         return additions, deletions
 
     def substitute(self, variable, value):
+        new_operands = []
         for operand in self.operands:
-            operand.substitute(variable, value)
+            new_operands.append(operand.substitute(variable, value))
+        return And(new_operands)
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
@@ -177,8 +183,7 @@ class Imply(LogicalFormula):
         return result
 
     def substitute(self, variable, value):
-        self.operands[0].substitute(variable, value)
-        self.operands[1].substitute(variable, value)
+        return Imply([self.operands[0].substitute(variable, value), self.operands[1].substitute(variable, value)])
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
@@ -199,8 +204,7 @@ class Equals(LogicalFormula):
         return result
 
     def substitute(self, variable, value):
-        self.operands[0].substitute(variable, value)
-        self.operands[1].substitute(variable, value)
+        return Equals([self.operands[0].substitute(variable, value), self.operands[1].substitute(variable, value)])
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
@@ -239,18 +243,15 @@ class ForAll(LogicalFormula):
         self.operands = operands
 
     def is_modeled_by(self, world):
-        expanded_list = []
-
         # get set name in variable spec and iterate
         set = world.sets[""]
         if len(self.operands[0].elements) == 3:
             set = world.sets[self.operands[0].elements[2]]
 
+        # substitute variables in expression with values and add expanded expressions to the list
+        expanded_list = []
         for value in set:
-            # make deep copy of the expression to expand, substitute value in variable and add to list
-            expanded_exp = copy.deepcopy(self.operands[1])
-            expanded_exp.substitute(self.operands[0].elements[0], value)
-            expanded_list.append(expanded_exp)
+            expanded_list.append(self.operands[1].substitute(self.operands[0].elements[0], value))
 
         for_all_and_exp = And(expanded_list)
         #print("for_all_and_exp: %s" % for_all_and_exp)
@@ -258,7 +259,7 @@ class ForAll(LogicalFormula):
         return for_all_and_exp.is_modeled_by(world)
 
     def substitute(self, variable, value):
-        self.operands[1].substitute(variable, value)
+        return ForAll([self.operands[0], self.operands[1].substitute(variable, value)])
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
@@ -271,24 +272,23 @@ class Exists(LogicalFormula):
         self.operands = operands
 
     def is_modeled_by(self, world):
-        expanded_list = []
-
         # get set name in variable spec and iterate
         set = world.sets[""]
         if len(self.operands[0].elements) == 3:
             set = world.sets[self.operands[0].elements[2]]
 
-        # get set name in variable spec and iterate
+        # substitute variables in expression with values and add expanded expressions to the list
+        expanded_list = []
         for value in set:
-            # make deep copy of the expression to expand, substitute value in variable and add to list
-            expanded_exp = copy.deepcopy(self.operands[1])
-            expanded_exp.substitute(self.operands[0].elements[0], value)
-            expanded_list.append(expanded_exp)
+            expanded_list.append(self.operands[1].substitute(self.operands[0].elements[0], value))
 
         exists_or_exp = Or(expanded_list)
         #print("exists_or_exp: %s" % exists_or_exp)
 
         return exists_or_exp.is_modeled_by(world)
+
+    def substitute(self, variable, value):
+        return ForAll([self.operands[0], self.operands[1].substitute(variable, value)])
 
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
@@ -313,6 +313,9 @@ class Not(LogicalFormula):
             additions.add(self.operand)
 
         return additions, deletions
+
+    def substitute(self, variable, value):
+        return Not(self.operand.substitute(variable, value))
 
     def __str__(self):
         return "not(%s)" % self.operand
@@ -442,10 +445,7 @@ def substitute(expression, variable, value):
     Do *not* replace the variable in-place, always return a new expression object. When you implement the quantifiers, you should use this same functionality to expand the formula to all possible 
     replacements for the variable that is quantified over.
     """
-    new_expression = copy.deepcopy(expression)
-    new_expression.substitute(variable, value)
-
-    return new_expression
+    return expression.substitute(variable, value)
 
 
 def apply(world, effect):
@@ -528,7 +528,6 @@ def my_tests():
     print("New World: %s" % new_world)
     print("World: %s" % world)
 
-
     for atom in new_world.atoms:
         atom.elements = ["x", "y"]
     print("New World: %s" % new_world)
@@ -601,22 +600,24 @@ def my_tests():
     world2 = make_world([("at", "home", "mickey"), ("at", "park", "mickey"), ("at", "store", "mickey"), ("at", "airport", "mickey"), ("at", "theater", "mickey")],
                        {"Locations": ["home", "park", "store", "airport", "theater"],
                         "": ["home", "park", "store", "airport", "theater", "mickey", "minny"]})
+    print("\nworld: %s" % world)
+    print("\nworld2: %s" % world2)
 
     expForAll = make_expression(("forall", ("?l", "-", "Locations"), (("at", "?l", "mickey"))))
     print("\nExpression expForAll: %s" % expForAll)
-    expForAll.is_modeled_by(world2)
+    print("expForAll.is_modeled_by(world2): %s" % expForAll.is_modeled_by(world2))
 
     expForAll2 = make_expression(("forall", ("?l", "-", "Locations"), ("imply", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
     print("\nExpression expForAll2: %s" % expForAll2)
-    expForAll2.is_modeled_by(world)
+    print("expForAll2.is_modeled_by(world): %s" % expForAll2.is_modeled_by(world))
 
     expForAllAnd = make_expression(("forall", ("?l", "-", "Locations"), ("and", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
     print("\nExpression expForAllAnd: %s" % expForAllAnd)
-    expForAllAnd.is_modeled_by(world)
+    print("expForAllAnd.is_modeled_by(world): %s" % expForAllAnd.is_modeled_by(world))
 
     expForAllOr = make_expression(("forall", ("?l", "-", "Locations"), ("or", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
     print("\nExpression expForAllOr: %s" % expForAllOr)
-    expForAllOr.is_modeled_by(world)
+    print("expForAllOr.is_modeled_by(world): %s" % expForAllOr.is_modeled_by(world))
 
     holmes_world = make_world([("knows", "holmes", "watson")], \
                    {"people": ["holmes", "watson", "moriarty", "adler"],
@@ -635,19 +636,19 @@ def my_tests():
     # EXISTS TESTS
     expForExists = make_expression(("exists", ("?l", "-", "Locations"), (("at", "?l", "mickey"))))
     print("\nExpression expForExists: %s" % expForExists)
-    expForExists.is_modeled_by(world)
+    print("expForExists.is_modeled_by(world): %s" % expForExists.is_modeled_by(world))
 
     expForExists2 = make_expression(("exists", ("?l", "-", "Locations"), ("imply", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
     print("\nExpression expForExists2: %s" % expForExists2)
-    expForExists2.is_modeled_by(world)
+    print("expForExists2.is_modeled_by(world): %s" % expForExists2.is_modeled_by(world))
 
     expForExistsAnd = make_expression(("exists", ("?l", "-", "Locations"), ("and", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
     print("\nExpression expForExistsAnd: %s" % expForExistsAnd)
-    expForExistsAnd.is_modeled_by(world)
+    print("expForExistsAnd.is_modeled_by(world): %s" % expForExistsAnd.is_modeled_by(world))
 
     expForExistsOr = make_expression(("exists", ("?l", "-", "Locations"), ("or", ("at", "?l", "mickey"), ("at", "?l", "minny"))))
     print("\nExpression expForExistsOr: %s" % expForExistsOr)
-    expForExistsOr.is_modeled_by(world)
+    print("expForExistsOr.is_modeled_by(world): %s" % expForExistsOr.is_modeled_by(world))
 
     expForExistsVar1 = make_expression(("exists", ("?s", "-", "stories"), ("knows", "holmes", "?s")))
     print("\nExpression expForExistsVar1: %s" % expForExistsVar1)
@@ -668,38 +669,30 @@ def my_tests():
     print("\nExpression expOrSubstitute: %s" % expOrSubstitute)
     print("Expression expOrSubstitute2: %s" % expOrSubstitute2)
 
-    print("\n*********** END OF my_tests ***********\n")
-
-if __name__ == "__main__":
-    my_tests()
-
-    exp = make_expression(("or", ("on", "a", "b"), ("on", "a", "d")))
-    world = make_world([("on", "a", "b"), ("on", "b", "c"), ("on", "c", "d")], {})
-
-    print("Should be True: ", end="")
-    print(models(world, exp))
-    change = make_expression(["and", ("not", ("on", "a", "b")), ("on", "a", "c")])
-
-    print("Should be False: ", end="")
-    print(models(apply(world, change), exp))
+    expNotSubstitute = make_expression(("not", ("at", "?l", "mickey")))
+    expNotSubstitute2 = substitute(expNotSubstitute, "?l", "home")
+    print("\nExpression expNotSubstitute: %s" % expNotSubstitute)
+    print("Expression expNotSubstitute2: %s" % expNotSubstitute2)
 
     print("mickey/minny example")
-    world = make_world([("at", "store", "mickey"), ("at", "airport", "minny")], {"Locations": ["home", "park", "store", "airport", "theater"], "": ["home", "park", "store", "airport", "theater", "mickey", "minny"]})
-    exp = make_expression(("and", 
-        ("not", ("at", "park", "mickey")), 
-        ("or", 
-              ("at", "home", "mickey"), 
-              ("at", "store", "mickey"), 
-              ("at", "theater", "mickey"), 
-              ("at", "airport", "mickey")), 
-        ("imply", 
-                  ("friends", "mickey", "minny"), 
-                  ("forall", 
-                            ("?l", "-", "Locations"),
-                            ("imply",
-                                    ("at", "?l", "mickey"),
-                                    ("at", "?l", "minny"))))))
-                                    
+    world = make_world([("at", "store", "mickey"), ("at", "airport", "minny")],
+                       {"Locations": ["home", "park", "store", "airport", "theater"],
+                        "": ["home", "park", "store", "airport", "theater", "mickey", "minny"]})
+    exp = make_expression(("and",
+                           ("not", ("at", "park", "mickey")),
+                           ("or",
+                            ("at", "home", "mickey"),
+                            ("at", "store", "mickey"),
+                            ("at", "theater", "mickey"),
+                            ("at", "airport", "mickey")),
+                           ("imply",
+                            ("friends", "mickey", "minny"),
+                            ("forall",
+                             ("?l", "-", "Locations"),
+                             ("imply",
+                              ("at", "?l", "mickey"),
+                              ("at", "?l", "minny"))))))
+
     print("world: %s" % world)
     print("exp: %s" % exp)
     print("Should be True: ", end="")
@@ -721,29 +714,29 @@ if __name__ == "__main__":
     print("Should be True: ", end="")
     print(models(movedworld, exp))
 
-    move_both_cond = make_expression(("and", 
-                                           ("at", "home", "mickey"), 
-                                           ("not", ("at", "store", "mickey")), 
-                                           ("when", 
-                                                 ("at", "store", "minny"), 
-                                                 ("and", 
-                                                      ("at", "home", "minny"), 
-                                                      ("not", ("at", "store", "minny"))))))
+    move_both_cond = make_expression(("and",
+                                      ("at", "home", "mickey"),
+                                      ("not", ("at", "store", "mickey")),
+                                      ("when",
+                                       ("at", "store", "minny"),
+                                       ("and",
+                                        ("at", "home", "minny"),
+                                        ("not", ("at", "store", "minny"))))))
     print("\nmove_both_cond: %s" % move_both_cond)
     print("Should be True: ", end="")
     print(models(apply(movedworld, move_both_cond), exp))
-    
+
     print("Should be False: ", end="")
     print(models(apply(friendsworld, move_both_cond), exp))
 
-    exp1 = make_expression(("forall", 
+    exp1 = make_expression(("forall",
                             ("?l", "-", "Locations"),
                             ("forall",
-                                  ("?l1", "-", "Locations"),
-                                  ("imply", 
-                                       ("and", ("at", "?l", "mickey"),
-                                               ("at", "?l1", "minny")),
-                                       ("=", "?l", "?l1")))))
+                             ("?l1", "-", "Locations"),
+                             ("imply",
+                              ("and", ("at", "?l", "mickey"),
+                               ("at", "?l1", "minny")),
+                              ("=", "?l", "?l1")))))
 
     print("\nmovedworld: %s" % movedworld)
     print("move_both_cond: %s" % move_both_cond)
@@ -755,5 +748,83 @@ if __name__ == "__main__":
 
     print("\napply(friendsworld, move_both_cond): %s" % apply(friendsworld, move_both_cond))
     print("exp1: %s" % exp1)
+    print("Should be False: ", end="")
+    print(models(apply(friendsworld, move_both_cond), exp1))
+
+    print("\n*********** END OF my_tests ***********\n")
+
+if __name__ == "__main__":
+    # ALL OF MY DIRTY TESTS ARE HERE
+    my_tests()
+
+    # ALL OF MARKUS CLEAN TESTS ARE HERE
+    exp = make_expression(("or", ("on", "a", "b"), ("on", "a", "d")))
+    world = make_world([("on", "a", "b"), ("on", "b", "c"), ("on", "c", "d")], {})
+
+    print("Should be True: ", end="")
+    print(models(world, exp))
+    change = make_expression(["and", ("not", ("on", "a", "b")), ("on", "a", "c")])
+
+    print("Should be False: ", end="")
+    print(models(apply(world, change), exp))
+
+    print("mickey/minny example")
+    world = make_world([("at", "store", "mickey"), ("at", "airport", "minny")],
+                       {"Locations": ["home", "park", "store", "airport", "theater"],
+                        "": ["home", "park", "store", "airport", "theater", "mickey", "minny"]})
+    exp = make_expression(("and",
+                           ("not", ("at", "park", "mickey")),
+                           ("or",
+                            ("at", "home", "mickey"),
+                            ("at", "store", "mickey"),
+                            ("at", "theater", "mickey"),
+                            ("at", "airport", "mickey")),
+                           ("imply",
+                            ("friends", "mickey", "minny"),
+                            ("forall",
+                             ("?l", "-", "Locations"),
+                             ("imply",
+                              ("at", "?l", "mickey"),
+                              ("at", "?l", "minny"))))))
+
+    print("Should be True: ", end="")
+    print(models(world, exp))
+    become_friends = make_expression(("friends", "mickey", "minny"))
+    friendsworld = apply(world, become_friends)
+    print("Should be False: ", end="")
+    print(models(friendsworld, exp))
+    move_minny = make_expression(("and", ("at", "store", "minny"), ("not", ("at", "airport", "minny"))))
+
+    movedworld = apply(friendsworld, move_minny)
+    print("Should be True: ", end="")
+    print(models(movedworld, exp))
+
+    move_both_cond = make_expression(("and",
+                                      ("at", "home", "mickey"),
+                                      ("not", ("at", "store", "mickey")),
+                                      ("when",
+                                       ("at", "store", "minny"),
+                                       ("and",
+                                        ("at", "home", "minny"),
+                                        ("not", ("at", "store", "minny"))))))
+
+    print("Should be True: ", end="")
+    print(models(apply(movedworld, move_both_cond), exp))
+
+    print("Should be False: ", end="")
+    print(models(apply(friendsworld, move_both_cond), exp))
+
+    exp1 = make_expression(("forall",
+                            ("?l", "-", "Locations"),
+                            ("forall",
+                             ("?l1", "-", "Locations"),
+                             ("imply",
+                              ("and", ("at", "?l", "mickey"),
+                               ("at", "?l1", "minny")),
+                              ("=", "?l", "?l1")))))
+
+    print("Should be True: ", end="")
+    print(models(apply(movedworld, move_both_cond), exp1))
+
     print("Should be False: ", end="")
     print(models(apply(friendsworld, move_both_cond), exp1))
