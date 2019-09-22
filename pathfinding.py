@@ -1,10 +1,35 @@
 import graph
+import heapq
 
 def default_heuristic(n, edge):
     """
     Default heuristic for A*. Do not change, rename or remove!
     """
     return 0
+
+
+def print_open_nodes(list):
+    print("ONODES: %s" % list)
+    print("\t", end="")
+    for element in list:
+        print("%s" % element[1].name, end=" * ")
+    print("")
+
+
+def print_closed_nodes(list):
+    print("CNODES: %s" % list)
+    print("\t", end="")
+    for element in list:
+        print("%s" % element.name, end=" * ")
+    print("")
+
+
+def print_heapq(list):
+    print("PQ: %s" % list)
+    for i in range(len(list)):
+        print(heapq.heappop(list), end=" * ")
+    #print("\n")
+
 
 def astar(start, heuristic, goal):
     """
@@ -26,6 +51,54 @@ def astar(start, heuristic, goal):
         - visited is the total number of nodes that were added to the frontier during the execution of the algorithm 
         - expanded is the total number of nodes that were expanded (i.e. whose neighbors were added to the frontier)
     """
+    open_nodes = []
+    closed_nodes = []
+
+    heapq.heappush(open_nodes, (heuristic(start, None), start, 0, None))
+    print_open_nodes(open_nodes)
+    i = 0
+
+    while len(open_nodes) > 0:
+        current_node_info = heapq.heappop(open_nodes)
+        current_node = current_node_info[1]
+        closed_nodes.append(current_node)
+        print("\nCURRENT NODE: %s" % current_node.name)
+        print("accumulated cost: %s" % current_node_info[2])
+
+        if goal(current_node):
+            print("\n!!!!! REACHED GOAL !!!!!\n")
+            node_parent = current_node_info[3]
+            path = [current_node_info]
+            while node_parent:
+                path.append(node_parent)
+                node_parent = node_parent[3]
+            print("PATH: ", end="")
+            for i in range(len(path)):
+                print("%s" % path.pop()[1].get_id(), end=" - ")
+            break
+
+        for edge in current_node.get_neighbors():
+            # f = accumulated cost + edge cost + h
+            f = current_node_info[2] + edge.cost + heuristic(edge.target, edge)
+            print("neighbor: %s -> gn:%s g:%s h:%s f:%s" % (edge.name, edge.cost, current_node_info[2] + edge.cost, heuristic(edge.target, edge), f))
+
+            if edge.target not in closed_nodes:
+                #if edge.target not in open_nodes:
+                heapq.heappush(open_nodes, (f, edge.target, current_node_info[2] + edge.cost, current_node_info))
+                #else:
+                #    print("ELEMENT ALREADY IN OPEN LIST!!! %s" % edge.name)
+            else:
+                print("ELEMENT ALREADY IN CLOSED LIST!!! %s" % edge.name)
+
+
+        print_open_nodes(open_nodes)
+        print_closed_nodes(closed_nodes)
+        #print_heapq(open_nodes)
+
+        i = i + 1
+        if i > 10:
+            break
+
     return [],0,0,0
 
 def print_path(result):
@@ -60,8 +133,10 @@ def main():
         return n.get_id() == target
     
     result = astar(graph.Austria["Eisenstadt"], atheuristic, atgoal)
+    g = graph.Austria
+    print()
     print_path(result)
-    
+    '''
     result = astar(graph.Austria["Eisenstadt"], default_heuristic, atgoal)
     print_path(result)
     
@@ -87,7 +162,7 @@ def main():
     
     result = astar(graph.InfNode(1), default_heuristic, multigoal)
     print_path(result)
-    
+    '''
 
 if __name__ == "__main__":
     main()
