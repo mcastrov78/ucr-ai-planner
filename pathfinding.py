@@ -1,29 +1,29 @@
 import graph
 import heapq
 
+
 def default_heuristic(n, edge):
     """
     Default heuristic for A*. Do not change, rename or remove!
     """
     return 0
 
+
 def print_open_nodes(list):
-    print("ONODES: %s" % list)
-    print("\t", end="")
+    print("OPEN: ", end="")
     for element in list:
-        print("%s" % element[2].get_id(), end=" | ")
+        print("[%s %s %s]" % (element[0], element[2].get_id(), element[3]), end=" | ")
     print("")
 
 
 def print_closed_nodes(list):
-    print("CNODES: %s" % list)
-    print("\t", end="")
+    print("CLOSED: ", end="")
     for element in list:
         print("%s" % element.get_id(), end=" | ")
     print("")
 
 
-def get_node_index_in_open_list(open_list, node, f):
+def get_node_index_in_open_list(open_list, node):
     # check if this node is already in the open list and return its index
     for i in range(len(open_list)):
         if open_list[i][2].get_id() == node.get_id():
@@ -51,66 +51,82 @@ def astar(start, heuristic, goal):
         - visited is the total number of nodes that were added to the frontier during the execution of the algorithm 
         - expanded is the total number of nodes that were expanded (i.e. whose neighbors were added to the frontier)
     """
+    edge_path = []
+    distance = 0
     open_list = []
     closed_list = []
     i = 0
 
-    # f, node, g (accumulated cost), parent node info, edge
+    '''
+    tuple structure that represents a "node info" (in all this code we assume f(n) = g(n) + h(n))
+        0 - f: accumulated cost plus heuristic value
+        1 - i: just a counter value to break ties in heapq when two or more items have the same f value
+        2 - node: current node
+        3 - g: accumulated cost
+        4 - parent node info: this same tuple structure for current node's parent 
+        5 - edge: edge that led to current node
+    '''
+    # push start node to the priority queue
     heapq.heappush(open_list, (heuristic(start, None), i, start, 0, None, None))
-    #print_open_nodes(open_list)
 
+    # while there are nodes to expand
     while len(open_list) > 0:
-        # get next node to expand
+        # get next node to expand from the priority queue, and push it to closed list
         current_node_info = heapq.heappop(open_list)
         current_node = current_node_info[2]
         closed_list.append(current_node)
         print("\nCURRENT NODE: %s" % current_node.get_id())
         print("accumulated cost: %s" % current_node_info[3])
 
+        # check if current node is the goal AND that it was the lowest value in the queue
         if goal(current_node) and current_node in closed_list:
-            print("\n!!!!! REACHED GOAL !!!!!\n")
-            print_open_nodes(open_list)
-            print_closed_nodes(closed_list)
-
-            # rebuild path based on each node's "parent"
+            print("\n!!!!! REACHED GOAL !!!!!")
+            # rebuild path based on each node's parent node info
+            distance = current_node_info[3]
             node_parent = current_node_info[4]
-            path = [current_node_info[5]]
+            edge_path.append(current_node_info[5])
             while node_parent:
                 if node_parent[5]:
-                    path.append(node_parent[5])
+                    edge_path.append(node_parent[5])
                 node_parent = node_parent[4]
-            path.reverse()
-            print("PATH: ", end="")
-            for i in range(len(path)):
-                print("%s (%s)" % (path[i].name, path[i].cost), end=" * ")
+            edge_path.reverse()
             break
 
-
+        # expand current node and get neighbors
         for edge in current_node.get_neighbors():
+            # inc counter value to break ties in heapq when two or more items have the same f value
+            i = i + 1
+
             # f = accumulated cost + edge cost + h
             accumulated_cost = current_node_info[3] + edge.cost
             f = accumulated_cost + heuristic(edge.target, edge)
-            i = i + 1
-            print("neighbor: %s -> gn:%s g:%s h:%s f:%s i:%s" % (edge.name, edge.cost, current_node_info[3] + edge.cost, heuristic(edge.target, edge), f, i))
+            print("neighbor: %s -> gn:%s g:%s h:%s f:%s i:%s" % (edge.name, edge.cost, current_node_info[3] + edge.cost,
+                                                                 heuristic(edge.target, edge), f, i))
 
+            # check if neighbor is NOT in closed list
             if edge.target not in closed_list:
-                node_index_in_open_list = get_node_index_in_open_list(open_list, edge.target, f)
-                # node is not in open list yet, push it through the priority queue
+                # check if neighbor is already in open list
+                node_index_in_open_list = get_node_index_in_open_list(open_list, edge.target)
                 if node_index_in_open_list == -1:
+                    # node is not in open list yet, push it through the priority queue
                     heapq.heappush(open_list, (f, i, edge.target, accumulated_cost, current_node_info, edge))
                 else:
-                    # check if previous node entry in open list yet has a better cost
+                    # check if new node path has a better cost than previous node entry in open list, if so, replace it
                     if open_list[node_index_in_open_list][0] > f:
-                        print("BETTER COST FOR %s: %s vs %s" % (open_list[node_index_in_open_list][2].get_id(), open_list[node_index_in_open_list][0], f))
+                        print("\tBETTER cost for %s: %s > %s" % (open_list[node_index_in_open_list][2].get_id(),
+                                                                  open_list[node_index_in_open_list][0], f))
                         del open_list[node_index_in_open_list]
                         heapq.heappush(open_list, (f, i, edge.target, accumulated_cost, current_node_info, edge))
+                    else:
+                        print("\tNO better cost for %s: %s < %s" % (open_list[node_index_in_open_list][2].get_id(),
+                                                                  open_list[node_index_in_open_list][0], f))
             else:
-                print("ELEMENT ALREADY IN CLOSED LIST!!! %s" % edge.name)
+                print("\tALREADY in CLOSED list!!! %s" % edge.name)
 
         print_open_nodes(open_list)
         print_closed_nodes(closed_list)
 
-    return path, current_node_info[3], len(open_list) + len(closed_list), len(closed_list)
+    return edge_path, distance, len(open_list) + len(closed_list), len(closed_list)
 
 def print_path(result):
     (path,cost,visited_cnt,expanded_cnt) = result
@@ -163,8 +179,8 @@ def main():
     print_path(result)
 
     print("*************************************************************")
-    #result = astar(graph.InfNode(1), default_heuristic, infgoal)
-    #print_path(result)
+    result = astar(graph.InfNode(1), default_heuristic, infgoal)
+    print_path(result)
 
     print("*************************************************************")
     def multiheuristic(n, edge):
@@ -176,6 +192,9 @@ def main():
     print_path(result)
 
     result = astar(graph.InfNode(1), default_heuristic, multigoal)
+    print_path(result)
+
+    result = astar(graph.InfNode(1), multiheuristic, multigoal)
     print_path(result)
 
 
