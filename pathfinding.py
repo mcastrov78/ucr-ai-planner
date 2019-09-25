@@ -1,5 +1,6 @@
 import graph
 import heapq
+import logging
 
 
 def default_heuristic(n, edge):
@@ -10,17 +11,11 @@ def default_heuristic(n, edge):
 
 
 def print_open_nodes(list):
-    print("OPEN: ", end="")
-    for element in list:
-        print("[%s %s %s]" % (element[0], element[2].get_id(), element[3]), end=" | ")
-    print("")
+    logger.debug("OPEN: %s" % " | ".join("[%s %s %s]" % (element[0], element[2].get_id(), element[3]) for element in list))
 
 
 def print_closed_nodes(list):
-    print("CLOSED: ", end="")
-    for element in list:
-        print("%s" % element.get_id(), end=" | ")
-    print("")
+    logger.debug("CLOSED: %s" % " | ".join("%s" % element.get_id() for element in list))
 
 
 def get_node_index_in_open_list(open_list, node):
@@ -75,12 +70,12 @@ def astar(start, heuristic, goal):
         current_node_info = heapq.heappop(open_list)
         current_node = current_node_info[2]
         closed_list.append(current_node)
-        print("\nCURRENT NODE: %s" % current_node.get_id())
-        print("accumulated cost: %s" % current_node_info[3])
+        logger.debug("*** CURRENT NODE: %s" % current_node.get_id())
+        logger.debug("accumulated cost: %s" % current_node_info[3])
 
         # check if current node is the goal AND that it was the lowest value in the queue
         if goal(current_node) and current_node in closed_list:
-            print("\n!!!!! REACHED GOAL !!!!!")
+            logger.debug("\n!!!!! REACHED GOAL !!!!!")
             # rebuild path based on each node's parent node info
             distance = current_node_info[3]
             node_parent = current_node_info[4]
@@ -100,8 +95,9 @@ def astar(start, heuristic, goal):
             # f = accumulated cost + edge cost + h
             accumulated_cost = current_node_info[3] + edge.cost
             f = accumulated_cost + heuristic(edge.target, edge)
-            print("neighbor: %s -> gn:%s g:%s h:%s f:%s i:%s" % (edge.name, edge.cost, current_node_info[3] + edge.cost,
-                                                                 heuristic(edge.target, edge), f, i))
+            logger.debug("neighbor: %s -> gn:%s g:%s h:%s f:%s i:%s" % (edge.name, edge.cost,
+                                                                         current_node_info[3] + edge.cost,
+                                                                         heuristic(edge.target, edge), f, i))
 
             # check if neighbor is NOT in closed list
             if edge.target not in closed_list:
@@ -113,15 +109,15 @@ def astar(start, heuristic, goal):
                 else:
                     # check if new node path has a better cost than previous node entry in open list, if so, replace it
                     if open_list[node_index_in_open_list][0] > f:
-                        print("\tBETTER cost for %s: %s > %s" % (open_list[node_index_in_open_list][2].get_id(),
-                                                                  open_list[node_index_in_open_list][0], f))
+                        logger.debug("\tBETTER cost for %s: %s > %s" % (open_list[node_index_in_open_list][2].get_id(),
+                                                                         open_list[node_index_in_open_list][0], f))
                         del open_list[node_index_in_open_list]
                         heapq.heappush(open_list, (f, i, edge.target, accumulated_cost, current_node_info, edge))
                     else:
-                        print("\tNO better cost for %s: %s < %s" % (open_list[node_index_in_open_list][2].get_id(),
-                                                                  open_list[node_index_in_open_list][0], f))
+                        logger.debug("\tNO better cost for %s: %s < %s" % (open_list[node_index_in_open_list][2].get_id(),
+                                                                            open_list[node_index_in_open_list][0], f))
             else:
-                print("\tALREADY in CLOSED list!!! %s" % edge.name)
+                logger.debug("\tALREADY in CLOSED list!!! %s" % edge.name)
 
         print_open_nodes(open_list)
         print_closed_nodes(closed_list)
@@ -160,15 +156,11 @@ def main():
         return n.get_id() == target
     
     result = astar(graph.Austria["Eisenstadt"], atheuristic, atgoal)
-    g = graph.Austria
-    print()
     print_path(result)
 
-    print("*************************************************************")
     result = astar(graph.Austria["Eisenstadt"], default_heuristic, atgoal)
     print_path(result)
 
-    print("*************************************************************")
     target = 2050
     def infheuristic(n, edge):
         return abs(n.get_id() - target)
@@ -178,11 +170,9 @@ def main():
     result = astar(graph.InfNode(1), infheuristic, infgoal)
     print_path(result)
 
-    print("*************************************************************")
     result = astar(graph.InfNode(1), default_heuristic, infgoal)
     print_path(result)
 
-    print("*************************************************************")
     def multiheuristic(n, edge):
         return abs(n.get_id()%123 - 63)
     def multigoal(n):
@@ -199,4 +189,16 @@ def main():
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
+    # create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    # create formatter and add it to logger
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
     main()
