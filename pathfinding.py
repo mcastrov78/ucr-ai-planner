@@ -1,6 +1,7 @@
 import graph
 import heapq
 import logging
+import math
 
 
 def default_heuristic(n, edge):
@@ -10,20 +11,24 @@ def default_heuristic(n, edge):
     return 0
 
 
-def print_open_nodes(list):
-    logger.debug("OPEN: %s" % " | ".join("[%s %s %s]" % (element[0], element[2].get_id(), element[3]) for element in list))
-
-
-def print_closed_nodes(list):
-    logger.debug("CLOSED: %s" % " | ".join("%s" % element.get_id() for element in list))
-
-
 def get_node_index_in_open_list(open_list, node):
     # check if this node is already in the open list and return its index
     for i in range(len(open_list)):
         if open_list[i][2].get_id() == node.get_id():
             return i
     return -1
+
+
+def get_edge_path(goal_node_info):
+    edge_path = []
+    node_parent = goal_node_info[4]
+    edge_path.append(goal_node_info[5])
+    while node_parent:
+        if node_parent[5]:
+            edge_path.append(node_parent[5])
+        node_parent = node_parent[4]
+    edge_path.reverse()
+    return edge_path
 
 
 def astar(start, heuristic, goal):
@@ -55,7 +60,7 @@ def astar(start, heuristic, goal):
     '''
     tuple structure that represents a "node info" (in all this code we assume f(n) = g(n) + h(n))
         0 - f: accumulated cost plus heuristic value
-        1 - i: just a counter value to break ties in heapq when two or more items have the same f value
+        1 - i: just a counter value to break ties in heapq when two or more items have the same f value (i.e. priority)
         2 - node: current node
         3 - g: accumulated cost
         4 - parent node info: this same tuple structure for current node's parent 
@@ -75,16 +80,10 @@ def astar(start, heuristic, goal):
 
         # check if current node is the goal AND that it was the lowest value in the queue
         if goal(current_node) and current_node in closed_list:
-            logger.debug("\n!!!!! REACHED GOAL !!!!!")
+            logger.debug("---------------------- !!!!! REACHED GOAL !!!!! ----------------------")
             # rebuild path based on each node's parent node info
             distance = current_node_info[3]
-            node_parent = current_node_info[4]
-            edge_path.append(current_node_info[5])
-            while node_parent:
-                if node_parent[5]:
-                    edge_path.append(node_parent[5])
-                node_parent = node_parent[4]
-            edge_path.reverse()
+            edge_path = get_edge_path(current_node_info)
             break
 
         # expand current node and get neighbors
@@ -114,15 +113,17 @@ def astar(start, heuristic, goal):
                         del open_list[node_index_in_open_list]
                         heapq.heappush(open_list, (f, i, edge.target, accumulated_cost, current_node_info, edge))
                     else:
-                        logger.debug("\tNO better cost for %s: %s < %s" % (open_list[node_index_in_open_list][2].get_id(),
-                                                                            open_list[node_index_in_open_list][0], f))
+                        logger.debug("\tNO better cost for %s: %s < %s" % (
+                        open_list[node_index_in_open_list][2].get_id(), open_list[node_index_in_open_list][0], f))
             else:
                 logger.debug("\tALREADY in CLOSED list!!! %s" % edge.name)
 
-        print_open_nodes(open_list)
-        print_closed_nodes(closed_list)
+        logger.debug("OPEN: %s" % " | ".join(
+            "[%s %s %s]" % (element[0], element[2].get_id(), element[3]) for element in open_list))
+        logger.debug("CLOSED: %s" % " | ".join("%s" % element.get_id() for element in closed_list))
 
     return edge_path, distance, len(open_list) + len(closed_list), len(closed_list)
+
 
 def print_path(result):
     (path,cost,visited_cnt,expanded_cnt) = result
@@ -187,14 +188,28 @@ def main():
     result = astar(graph.InfNode(1), multiheuristic, multigoal)
     print_path(result)
 
+    # more tests ...
+    def power_of_2_heuristic(n, edge):
+        log2n = 0
+        if n.get_id() > 0:
+            log2n = math.log2(n.get_id())
+        return abs(math.floor(log2n) - math.floor(math.log2(1024)))
+
+    def power_of_2_goal(n):
+        sqr = math.sqrt(n.get_id())
+        return (math.floor(sqr) == sqr) and n.get_id() > 1000
+
+    result = astar(graph.InfNode(1), power_of_2_heuristic, power_of_2_goal)
+    print_path(result)
+
 
 if __name__ == "__main__":
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
+    logger = logging.getLogger("pathfinding")
+    logger.setLevel(logging.DEBUG)
 
     # create console handler and set level to debug
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel(logging.INFO)
 
     # create formatter and add it to logger
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
