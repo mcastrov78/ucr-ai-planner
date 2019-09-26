@@ -21,12 +21,11 @@ def get_node_index_in_open_list(open_list, node):
 
 def get_edge_path(goal_node_info):
     edge_path = []
-    node_parent = goal_node_info[4]
-    edge_path.append(goal_node_info[5])
-    while node_parent:
-        if node_parent[5]:
-            edge_path.append(node_parent[5])
-        node_parent = node_parent[4]
+    node_info = goal_node_info
+    while node_info:
+        if node_info[5]:
+            edge_path.append(node_info[5])
+        node_info = node_info[4]
     edge_path.reverse()
     return edge_path
 
@@ -51,8 +50,8 @@ def astar(start, heuristic, goal):
         - visited is the total number of nodes that were added to the frontier during the execution of the algorithm 
         - expanded is the total number of nodes that were expanded (i.e. whose neighbors were added to the frontier)
     """
-    edge_path = []
-    distance = 0
+    edge_path = None
+    distance = None
     open_list = []
     closed_list = []
     i = 0
@@ -155,7 +154,7 @@ def main():
         return graph.AustriaHeuristic[target][n.get_id()]
     def atgoal(n):
         return n.get_id() == target
-    
+
     result = astar(graph.Austria["Eisenstadt"], atheuristic, atgoal)
     print_path(result)
 
@@ -187,7 +186,7 @@ def main():
 
     result = astar(graph.InfNode(1), multiheuristic, multigoal)
     print_path(result)
-
+    
     # more tests ...
     def power_of_2_heuristic(n, edge):
         log2n = 0
@@ -200,6 +199,10 @@ def main():
         return (math.floor(sqr) == sqr) and n.get_id() > 1000
 
     result = astar(graph.InfNode(1), power_of_2_heuristic, power_of_2_goal)
+    print_path(result)
+
+    target = "Eisenstadt"
+    result = astar(graph.Austria["Eisenstadt"], atheuristic, atgoal)
     print_path(result)
 
 
