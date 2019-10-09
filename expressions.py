@@ -232,6 +232,9 @@ class When(LogicalFormula):
 
         return additions, deletions
 
+    def substitute(self, variable, value):
+        return When([self.operands[0].substitute(variable, value), self.operands[1].substitute(variable, value)])
+
     def __str__(self):
         operands_str = ", ".join("%s" % operand for operand in self.operands)
         return "when(%s)" % operands_str
@@ -242,7 +245,7 @@ class ForAll(LogicalFormula):
     def __init__(self, operands):
         self.operands = operands
 
-    def is_modeled_by(self, world):
+    def get_expanded_for_all(self, world):
         # get set name in variable spec and iterate
         set = world.sets[""]
         if len(self.operands[0].elements) == 3:
@@ -253,10 +256,17 @@ class ForAll(LogicalFormula):
         for value in set:
             expanded_list.append(self.operands[1].substitute(self.operands[0].elements[0], value))
 
-        for_all_and_exp = And(expanded_list)
-        #print("for_all_and_exp: %s" % for_all_and_exp)
+        return And(expanded_list)
 
-        return for_all_and_exp.is_modeled_by(world)
+    def is_modeled_by(self, world):
+        expanded_for_all = self.get_expanded_for_all(world)
+        #print("expanded_for_all: %s" % expanded_for_all)
+        return expanded_for_all.is_modeled_by(world)
+
+    def get_changes(self, world):
+        expanded_for_all = self.get_expanded_for_all(world)
+        #print("expanded_for_all: %s" % expanded_for_all)
+        return expanded_for_all.get_changes(world)
 
     def substitute(self, variable, value):
         return ForAll([self.operands[0], self.operands[1].substitute(variable, value)])
@@ -577,7 +587,6 @@ def my_tests():
     print("\nExpression expEquals: %s" % expEquals2)
     print("Expression expEquals2: %s" % expEquals2.is_modeled_by(world))
 
-
     # WHEN TESTS
     expWhen = make_expression(("when", "a", "b"))
     print("\nExpression expWhen: %s" % expWhen)
@@ -628,6 +637,11 @@ def my_tests():
     expForAllVar1 = make_expression(("forall", ("?s", "-", "stories"), ("knows", "holmes", "?s")))
     print("\nExpression expForAllVar1: %s" % expForAllVar1)
     print("expForAllVar1.is_modeled_by: %s" % expForAllVar1.is_modeled_by(holmes_world))
+
+    expForAllVar1Apply = make_expression(("forall", ("?s", "-", "stories"), ("knows", "holmes", "?s")))
+    print("\nExpression expForAllVar1Apply: %s" % expForAllVar1Apply)
+    new_holmes_world = holmes_world.apply(expForAllVar1Apply)
+    print("new_holmes_world: %s" % new_holmes_world)
 
     expForAllVar2 = make_expression(("forall", ("?s",), ("knows", "holmes", "?s")))
     print("\nExpression expForAllVar1: %s" % expForAllVar2)
