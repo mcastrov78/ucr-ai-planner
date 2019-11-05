@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/../../../training/pyhton/.idea/pyhton.iml" filepath="$PROJECT_DIR$/../../../training/pyhton/.idea/pyhton.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/ucr-ai-planner.iml" filepath="$PROJECT_DIR$/.idea/ucr-ai-planner.iml" />
     </modules>
   </component>
