@@ -87,7 +87,7 @@ def parse_domain(fname):
     pddl_types = []
     pddl_constants = {}
     pddl_predicates = {}
-    pddl_actions = {}
+    pddl_actions = []
 
     #print("Stack: %s" % stack)
     for element in stack:
@@ -129,7 +129,7 @@ def parse_domain(fname):
 
                 # register processed action
                 if action is not None:
-                    pddl_actions[action.name] = action
+                    pddl_actions.append(action)
 
         print("PDDL Types: %s" % pddl_types)
         print("PDDL Constants: %s" % pddl_constants)
@@ -146,11 +146,11 @@ def parse_problem(fname):
     The return value of this function is passed to planner.plan, and does not have to follow any particular format
     """
     stack = get_stack_from_pddl(fname)
-    pddl_objects = []
+    pddl_objects = {}
     pddl_init_exp = []
     pddl_goal_exp = []
 
-    print("Stack: %s" % stack)
+    #print("Stack: %s" % stack)
     for element in stack:
         for subelement in element:
             if subelement[0] == ":objects":
