@@ -15,6 +15,30 @@ def merge_dictionaries(dict1, dict2):
     return dict3
 
 
+def ground_action(action, substitutions_per_action, when_expression):
+    #if len(substitutions_per_action) == 0:
+        #print(when_expression)
+        #when_expression_list = ["when", action.precondition, action.effect]
+        #when_expression = expressions.make_expression(when_expression_list)
+    for substitution_per_action in substitutions_per_action:
+        for substitution_per_param in substitution_per_action:
+            another_when_expression = when_expression.substitute(substitution_per_param[0], substitution_per_param[1])
+            if len(substitutions_per_action) == 1:
+                print(another_when_expression)
+            else:
+                ground_action(action, substitutions_per_action[1:], another_when_expression)
+
+
+def ground_actions(action, substitutions_per_action):
+    ground_actions = []
+
+    when_expression_list = ["when", action.precondition, action.effect]
+    when_expression = expressions.make_expression(when_expression_list)
+
+    #for substitution_per_action in substitutions_per_action:
+    ground_action(action, substitutions_per_action, when_expression)
+
+
 def plan(domain, problem, useheuristic=True):
     """
     Find a solution to a planning problem in the given domain 
@@ -55,26 +79,34 @@ def plan(domain, problem, useheuristic=True):
 
     # for each action in the domain
     for action in domain[3]:
-        action_expresions = []
+        substitutions_per_action = []
 
         # for each group of params of the same type for this action
         for parameter_type in action.parameters:
             print("Action: %s - Param Type: %s - Params: %s" % (action.name, parameter_type, action.parameters[parameter_type]))
 
-            when_expression_list = ["when", action.precondition, action.effect]
-            when_expression = expressions.make_expression(when_expression_list)
-            print("when_expression: %s" % when_expression)
+            #when_expression_list = ["when", action.precondition, action.effect]
+            #when_expression = expressions.make_expression(when_expression_list)
+            #print("when_expression: %s" % when_expression)
 
             # for each param in each group
             for i in range(len(action.parameters[parameter_type])):
                 # for each ground param in each group
+                substitutions_per_param = []
                 for ground_param in world_sets[parameter_type]:
-                    print("\tParam Type: %s, Ground Param: %s" % (action.parameters[parameter_type][i], ground_param))
-                    when_expression = when_expression.substitute(action.parameters[parameter_type][i], ground_param)
+                    print("\tParam: %s, Ground Param: %s" % (action.parameters[parameter_type][i], ground_param))
+                    #when_expression = when_expression.substitute(action.parameters[parameter_type][i], ground_param)
+                    substitutions_per_param.append([action.parameters[parameter_type][i], ground_param])
+                substitutions_per_action.append(substitutions_per_param)
 
-            action_expresions.append(when_expression)
+        print("substitutions_per_action: %s" % substitutions_per_action)
+        ground_actions(action, substitutions_per_action)
 
-    print("action_expresions: %s" % action_expresions)
+    #when_expression_list = ["when", action.precondition, action.effect]
+    # when_expression = expressions.make_expression(when_expression_list)
+    # print("when_expression: %s" % when_expression)
+    ground_actions(action, substitutions_per_action)
+
     start = graph.Node()
     return pathfinding.astar(start, heuristic if useheuristic else pathfinding.default_heuristic, isgoal)
 
