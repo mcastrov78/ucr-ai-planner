@@ -34,6 +34,7 @@ class GeomNode(Node):
         return self.neighbors
     def get_id(self):
         return self.name
+
         
 class InfNode(Node):
     """
@@ -49,6 +50,31 @@ class InfNode(Node):
         return result
     def get_id(self):
         return self.nr
+
+
+class ExpressionNode(Node):
+    def __init__(self, world, actions):
+        self.world = world
+        self.actions = actions
+
+        # get all atoms in node's world, order them alphabetically (to guarantee same order), join them and use as Id
+        atoms_list = []
+        for atom in self.world.atoms:
+            atoms_list.append(atom.__str__());
+        atoms_list.sort()
+        self.id = "-".join(atoms_list)
+
+    def get_id(self):
+        return self.id
+
+    def get_neighbors(self):
+        neighbors = []
+        for action in self.actions:
+            additions, deletions = action.expression.get_changes(self.world)
+            if (len(additions) + len(deletions)) > 0:
+                target_node = ExpressionNode(self.world.apply(action.expression), self.actions)
+                neighbors.append(Edge(target_node, 1, action.get_expanded_exp_name()))
+        return neighbors
 
 
 def make_geom_graph(cities, distances):

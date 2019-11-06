@@ -6,6 +6,20 @@ import pathfinding
 import sys 
 
 
+class ExpandedExpression:
+    ''' This class is to hold expanded expressions for the actions, the action names and the grounded paramters '''
+    def __init__(self, name, expression):
+        self.name = name
+        self.expression = expression
+        self.parameters = []
+
+    def add_paramater(self, parameter):
+        self.parameters.append(parameter)
+
+    def get_expanded_exp_name(self):
+        return self.name + "(" + ", ".join(self.parameters) + ")"
+
+
 def merge_dictionaries(dict1, dict2):
     ''' Merge dictionaries and keep values of common keys in list'''
     dict3 = {**dict1, **dict2}
@@ -15,28 +29,38 @@ def merge_dictionaries(dict1, dict2):
     return dict3
 
 
-def expand_expressions(action, substitution_per_action, expressions_to_expand):
+def expand_expressions(substitution_per_action, expressions_to_expand):
     expanded_expressions = []
-
     # for each param in action
+
     for substitution_per_param in substitution_per_action:
-        for expression in expressions_to_expand:
-            new_when_expression = expression.substitute(substitution_per_param[0], substitution_per_param[1])
-            expanded_expressions.append(new_when_expression)
+        for expanded_expression in expressions_to_expand:
+            # create a new WHEN expression with the substitutions
+            new_when_expression = expanded_expression.expression.substitute(substitution_per_param[0],
+                                                                            substitution_per_param[1])
+            # create new ExpandedExpression for the new WHEN expression
+            new_expanded_expression = ExpandedExpression(expanded_expression.name, new_when_expression)
+            # add existing processed parameters and the new being processed on this round of substitutions
+            new_expanded_expression.parameters.extend(expanded_expression.parameters)
+            new_expanded_expression.add_paramater(substitution_per_param[1])
+            expanded_expressions.append(new_expanded_expression)
+
     return expanded_expressions
 
 
-def ground_actions(action, substitutions_per_action):
+def expand_action(action, substitutions_per_action):
     expressions_to_expand = []
 
-    # initial action expression to expan
+    # create and initial WHEN expression to expand and wrap it in ExpandedExpression
     when_expression_list = ["when", action.precondition, action.effect]
     when_expression = expressions.make_expression(when_expression_list)
-    expressions_to_expand.append(when_expression)
+    expanded_expression = ExpandedExpression(action.name, when_expression)
+    expressions_to_expand.append(expanded_expression)
 
-    # expand each expression in expressions_to_expand as many times as parameters we have
+    # expand each expression in expressions_to_expand as many times as parameters we have for the action
     for substitution_per_action in substitutions_per_action:
-        expressions_to_expand = expand_expressions(action, substitution_per_action, expressions_to_expand)
+        expressions_to_expand = expand_expressions(substitution_per_action, expressions_to_expand)
+
     return expressions_to_expand
 
 
@@ -60,48 +84,54 @@ def plan(domain, problem, useheuristic=True):
         return pathfinding.default_heuristic
         
     def isgoal(state):
-        return True
+        goal = expressions.make_expression(problem[2])
+        return state.world.models(goal)
 
     '''
     domain[0] = pddl_types, domain[1] = pddl_constants, domain[2] = pddl_predicates, domain[3] = pddl_actions
     problem[0] = pddl_objects, problem[1] = pddl_init_exp, problem[2] = pddl_goal_exp
     '''
+
+    # merge domain constants and problem objects
     world_sets = merge_dictionaries(domain[1], problem[0])
+
+    # add the "all objects" set with key "" to world_sets
     all_objects = []
-    print()
-    #print("WORLD SETS: %s" % world_sets)
     for value in world_sets.values():
         all_objects.extend(value)
     world_sets[""] = all_objects
-    #print("all_objects: %s" % all_objects)
-    print("WORLD SETS: %s" % world_sets)
+    #print("WORLD SETS: %s" % world_sets)
 
-    world = expressions.World(problem[1], world_sets)
+    # get all expanded expressions for all actions
+    expanded_expressions = []
 
     # for each action in the domain
     for action in domain[3]:
         substitutions_per_action = []
-
         # for each group of params of the same type for this action
         for parameter_type in action.parameters:
-            print("Action: %s - Param Type: %s - Params: %s" % (action.name, parameter_type, action.parameters[parameter_type]))
-
-            # for each param in each group
-            for i in range(len(action.parameters[parameter_type])):
-                # for each ground param in each group
+            #print("Action: %s - Param Type: %s - Params: %s" % (action.name, parameter_type, action.parameters[parameter_type]))
+            # for each param in each group of params of the same type for this action
+            for parameter in action.parameters[parameter_type]:
                 substitutions_per_param = []
                 for ground_param in world_sets[parameter_type]:
-                    print("\tParam: %s, Ground Param: %s" % (action.parameters[parameter_type][i], ground_param))
-                    substitutions_per_param.append([action.parameters[parameter_type][i], ground_param])
+                    #print("\tParam: %s, Ground Param: %s" % (parameter, ground_param))
+                    substitutions_per_param.append([parameter, ground_param])
                 substitutions_per_action.append(substitutions_per_param)
 
-        print("substitutions_per_action: %s" % substitutions_per_action)
+        # expand the action with all possible substitutions
+        #print("substitutions_per_action: %s" % substitutions_per_action)
+        expanded_expressions.extend(expand_action(action, substitutions_per_action))
 
-        expanded_expressions = ground_actions(action, substitutions_per_action)
-        for expression in expanded_expressions:
-            print("EXP: %s" % expression)
-    
-    start = graph.Node()
+    #print()
+    #for expression in expanded_expressions:
+    #    print("EXP: %s" % expression)
+
+    # create world with pddl_init_exp and world_sets
+    world = expressions.make_world(problem[1], world_sets)
+
+    start = graph.ExpressionNode(world, expanded_expressions)
+    start.get_neighbors()
     return pathfinding.astar(start, heuristic if useheuristic else pathfinding.default_heuristic, isgoal)
 
 def main(domain, problem, useheuristic):
