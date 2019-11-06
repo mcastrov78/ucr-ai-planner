@@ -53,6 +53,7 @@ class InfNode(Node):
 
 
 class ExpressionNode(Node):
+    """ Node for logical expression to resolve planing problems in PDDL files """
     def __init__(self, world, actions):
         self.world = world
         self.actions = actions
@@ -70,6 +71,7 @@ class ExpressionNode(Node):
     def get_neighbors(self):
         neighbors = []
         for action in self.actions:
+            # for each expanded action a valid neighbor will be one that causes changes to the world
             additions, deletions = action.expression.get_changes(self.world)
             if (len(additions) + len(deletions)) > 0:
                 target_node = ExpressionNode(self.world.apply(action.expression), self.actions)

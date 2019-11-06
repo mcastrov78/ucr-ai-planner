@@ -4,6 +4,7 @@ import expressions
 
 
 class Action:
+    """This class makes it easier to handle all possible Action parts"""
     def __init__(self, name):
         self.name = name
         self.parameters = {}
@@ -21,6 +22,7 @@ class Action:
 
 
 def get_stack_from_pddl(fname):
+    """Builds and returns a stack after parsing a PDDL file"""
     stack = []
     list = []
 
@@ -45,16 +47,18 @@ def get_stack_from_pddl(fname):
     return stack
 
 
-def process_parameters(parameters):
+def process_parameters(parameters, store_order=False):
+    """Generic method to parse parameters with types of the form '?param - type' and its variances"""
     parameters_map = {}
     param_of_type = []
     dash_found = False
 
     # traverse all parameters parts
+    i = 0
     for param_part in parameters:
         # process type
         if dash_found:
-            # if type is already defined, add param to list, if not, assign list to the type
+            # if type is already defined, add param to existing list, if not, assign new list to the type
             if param_part in parameters_map:
                 parameters_map[param_part].append(*param_of_type)
             else:
@@ -64,8 +68,12 @@ def process_parameters(parameters):
             continue
 
         if param_part != "-":
-            # this is a parameter
-            param_of_type.append(param_part)
+            # this is a parameter, in some cases we want to keep the order info (like to print action names)
+            if store_order:
+                param_of_type.append([param_part, i])
+                i += 1
+            else:
+                param_of_type.append(param_part)
         else:
             # a type is next
             dash_found = True
@@ -89,7 +97,6 @@ def parse_domain(fname):
     pddl_predicates = {}
     pddl_actions = []
 
-    #print("Stack: %s" % stack)
     for element in stack:
         for subelement in element:
             if subelement[0] == ":types":
@@ -107,7 +114,7 @@ def parse_domain(fname):
                 for action_part in subelement[1:]:
                     # process data sections found on previous step
                     if parameters_found:
-                        action.parameters = process_parameters(action_part)
+                        action.parameters = process_parameters(action_part, True)
                         parameters_found = False
                     elif precondition_found:
                         action.precondition = action_part
@@ -150,7 +157,6 @@ def parse_problem(fname):
     pddl_init_exp = []
     pddl_goal_exp = []
 
-    #print("Stack: %s" % stack)
     for element in stack:
         for subelement in element:
             if subelement[0] == ":objects":
