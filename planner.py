@@ -15,28 +15,29 @@ def merge_dictionaries(dict1, dict2):
     return dict3
 
 
-def ground_action(action, substitutions_per_action, when_expression):
-    #if len(substitutions_per_action) == 0:
-        #print(when_expression)
-        #when_expression_list = ["when", action.precondition, action.effect]
-        #when_expression = expressions.make_expression(when_expression_list)
-    for substitution_per_action in substitutions_per_action:
-        for substitution_per_param in substitution_per_action:
-            another_when_expression = when_expression.substitute(substitution_per_param[0], substitution_per_param[1])
-            if len(substitutions_per_action) == 1:
-                print(another_when_expression)
-            else:
-                ground_action(action, substitutions_per_action[1:], another_when_expression)
+def expand_expressions(action, substitution_per_action, expressions_to_expand):
+    expanded_expressions = []
+
+    # for each param in action
+    for substitution_per_param in substitution_per_action:
+        for expression in expressions_to_expand:
+            new_when_expression = expression.substitute(substitution_per_param[0], substitution_per_param[1])
+            expanded_expressions.append(new_when_expression)
+    return expanded_expressions
 
 
 def ground_actions(action, substitutions_per_action):
-    ground_actions = []
+    expressions_to_expand = []
 
+    # initial action expression to expan
     when_expression_list = ["when", action.precondition, action.effect]
     when_expression = expressions.make_expression(when_expression_list)
+    expressions_to_expand.append(when_expression)
 
-    #for substitution_per_action in substitutions_per_action:
-    ground_action(action, substitutions_per_action, when_expression)
+    # expand each expression in expressions_to_expand as many times as parameters we have
+    for substitution_per_action in substitutions_per_action:
+        expressions_to_expand = expand_expressions(action, substitution_per_action, expressions_to_expand)
+    return expressions_to_expand
 
 
 def plan(domain, problem, useheuristic=True):
@@ -85,28 +86,21 @@ def plan(domain, problem, useheuristic=True):
         for parameter_type in action.parameters:
             print("Action: %s - Param Type: %s - Params: %s" % (action.name, parameter_type, action.parameters[parameter_type]))
 
-            #when_expression_list = ["when", action.precondition, action.effect]
-            #when_expression = expressions.make_expression(when_expression_list)
-            #print("when_expression: %s" % when_expression)
-
             # for each param in each group
             for i in range(len(action.parameters[parameter_type])):
                 # for each ground param in each group
                 substitutions_per_param = []
                 for ground_param in world_sets[parameter_type]:
                     print("\tParam: %s, Ground Param: %s" % (action.parameters[parameter_type][i], ground_param))
-                    #when_expression = when_expression.substitute(action.parameters[parameter_type][i], ground_param)
                     substitutions_per_param.append([action.parameters[parameter_type][i], ground_param])
                 substitutions_per_action.append(substitutions_per_param)
 
         print("substitutions_per_action: %s" % substitutions_per_action)
-        ground_actions(action, substitutions_per_action)
 
-    #when_expression_list = ["when", action.precondition, action.effect]
-    # when_expression = expressions.make_expression(when_expression_list)
-    # print("when_expression: %s" % when_expression)
-    ground_actions(action, substitutions_per_action)
-
+        expanded_expressions = ground_actions(action, substitutions_per_action)
+        for expression in expanded_expressions:
+            print("EXP: %s" % expression)
+    
     start = graph.Node()
     return pathfinding.astar(start, heuristic if useheuristic else pathfinding.default_heuristic, isgoal)
 
