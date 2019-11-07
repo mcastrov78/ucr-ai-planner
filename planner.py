@@ -38,18 +38,55 @@ def merge_dictionaries(dict1, dict2):
     return dict3
 
 
-def build_world_sets(constants, objects):
-    """ Build the sets variable required to make a n initial world """
+def get_all_child_objects(subtypes, world_sets, types):
+    """ Get all child objects for these types and their subtypes recursively """
+    child_objects = []
+    for subtype in subtypes:
+        if subtype in world_sets:
+            # reached a leaf subtype with child objects
+            child_objects.extend(world_sets[subtype])
+        else:
+            # reached a non-leaf subtype, get all child objects recursively
+            child_objects.extend(get_all_child_objects(types[subtype], world_sets, types))
+    return child_objects
+
+
+def complete_hierarchy(world_sets, types):
+    """ Complete World Sets hierarchy with all child objects for types and their subtypes """
+    logger.debug("WORLD SET: %s" % world_sets)
+    logger.debug("TYPES: %s" % types)
+
+    for type, subtypes in types.items():
+        # don't do this for the "" types sets
+        if len(type) > 0:
+            # get all child objects for this type and its subtypes recursively
+            all_child_objects = get_all_child_objects(subtypes, world_sets, types)
+            logger.debug("Type: %s - Subtype: %s - Children: %s" % (type, subtypes, all_child_objects))
+            # if type is already defined in world sets, add new objects, otherwise expand existing list
+            if type in world_sets:
+                world_sets[type].extend(all_child_objects)
+            else:
+                world_sets[type] = all_child_objects
+
+    logger.debug("WORLD SET: %s" % world_sets)
+    return world_sets
+
+def build_world_sets(constants, objects, types):
+    """ Build the sets variable required to make an initial world """
     # merge domain constants and problem objects
     world_sets = merge_dictionaries(constants, objects)
+    # complete constants and objects lists based on types hierarchy
+    world_sets = complete_hierarchy(world_sets, types)
 
     # create and add the "all objects" set with key "" to world_sets
     all_objects = []
     for value in world_sets.values():
-        all_objects.extend(value)
+        for subvalue in value:
+            if subvalue not in all_objects:
+                all_objects.append(subvalue)
     world_sets[""] = all_objects
 
-    logger.debug("WORLD SETS: %s" % world_sets)
+    logger.info("WORLD SETS: %s" % world_sets)
     return world_sets
 
 
@@ -120,7 +157,7 @@ def plan(domain, problem, useheuristic=True):
     problem[0] = pddl_objects, problem[1] = pddl_init_exp, problem[2] = pddl_goal_exp
     '''
     # get the sets variable required to make a n initial world
-    world_sets = build_world_sets(domain[1], problem[0])
+    world_sets = build_world_sets(domain[1], problem[0], domain[0])
 
     # get all expanded expressions for all actions
     expanded_expressions = []
