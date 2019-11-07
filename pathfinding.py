@@ -1,20 +1,12 @@
 import graph
 import heapq
 import logging
+import logging.config
 import math
 
-# initialize logging
-logger = logging.getLogger("pathfinding")
-logger.setLevel(logging.DEBUG)
-
-# create console handler and set level to debug
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-
-# create formatter and add it to logger
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+# initialize logger
+logging.config.fileConfig('logging.conf')
+logger = logging.getLogger(__name__)
 
 
 def default_heuristic(n, edge):

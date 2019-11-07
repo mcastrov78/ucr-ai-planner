@@ -1,6 +1,11 @@
 import re
 import sys
-import expressions
+import logging
+import logging.config
+
+# initialize logger
+logging.config.fileConfig('logging.conf')
+logger = logging.getLogger(__name__)
 
 
 class Action:
@@ -24,22 +29,20 @@ class Action:
 def get_stack_from_pddl(fname):
     """Builds and returns a stack after parsing a PDDL file"""
     stack = []
-    list = []
-
     with open(fname) as file:
         # remove comment lines
         fileContentNoComments = re.sub(r';.*$', '', file.read(), flags=re.MULTILINE).lower()
-        #print(fileContentNoComments)
+        logger.debug("fileContentNoComments: %s" % fileContentNoComments);
 
         # tokenize
         for token in re.findall(r'[()]|[^\s()]+', fileContentNoComments):
-            #print(token)
+            logger.debug(token)
             if token == ")":
                 list = []
-                poppedToken = stack.pop()
-                while poppedToken != "(":
-                    list.append(poppedToken)
-                    poppedToken = stack.pop()
+                popped_token = stack.pop()
+                while popped_token != "(":
+                    list.append(popped_token)
+                    popped_token = stack.pop()
                 list.reverse()
                 stack.append(list)
             else:
@@ -68,7 +71,7 @@ def process_parameters(parameters, store_order=False):
             continue
 
         if param_part != "-":
-            # this is a parameter, in some cases we want to keep the order info (like to print action names)
+            # this is a parameter, in some cases we want to keep the order info (like to print full action names)
             if store_order:
                 param_of_type.append([param_part, i])
                 i += 1
@@ -138,10 +141,10 @@ def parse_domain(fname):
                 if action is not None:
                     pddl_actions.append(action)
 
-        print("PDDL Types: %s" % pddl_types)
-        print("PDDL Constants: %s" % pddl_constants)
-        print("PDDL Predicates: %s" % pddl_predicates)
-        print("PDDL Actions: %s" % pddl_actions)
+        logger.info("PDDL Types: %s" % pddl_types)
+        logger.info("PDDL Constants: %s" % pddl_constants)
+        logger.info("PDDL Predicates: %s" % pddl_predicates)
+        logger.info("PDDL Actions: %s" % pddl_actions)
 
     return pddl_types, pddl_constants, pddl_predicates, pddl_actions
 
@@ -166,9 +169,9 @@ def parse_problem(fname):
             if subelement[0] == ":goal":
                 pddl_goal_exp = subelement[1]
 
-    print("PDDL Objects: %s" % pddl_objects)
-    print("PDDL Init: %s" % pddl_init_exp)
-    print("PDDL Goal: %s" % pddl_goal_exp)
+    logger.info("PDDL Objects: %s" % pddl_objects)
+    logger.info("PDDL Init: %s" % pddl_init_exp)
+    logger.info("PDDL Goal: %s" % pddl_goal_exp)
 
     return pddl_objects, pddl_init_exp, pddl_goal_exp
     

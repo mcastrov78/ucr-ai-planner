@@ -4,6 +4,12 @@ import graph
 import expressions
 import pathfinding
 import sys 
+import logging
+import logging.config
+
+# initialize logger
+logging.config.fileConfig('logging.conf')
+logger = logging.getLogger(__name__)
 
 
 class ExpandedExpression:
@@ -30,6 +36,21 @@ def merge_dictionaries(dict1, dict2):
         if key in dict1 and key in dict2:
             dict3[key] = [value, dict1[key]]
     return dict3
+
+
+def build_world_sets(constants, objects):
+    """ Build the sets variable required to make a n initial world """
+    # merge domain constants and problem objects
+    world_sets = merge_dictionaries(constants, objects)
+
+    # create and add the "all objects" set with key "" to world_sets
+    all_objects = []
+    for value in world_sets.values():
+        all_objects.extend(value)
+    world_sets[""] = all_objects
+
+    logger.debug("WORLD SETS: %s" % world_sets)
+    return world_sets
 
 
 def expand_expressions(substitution_per_action, expressions_to_expand):
@@ -98,15 +119,8 @@ def plan(domain, problem, useheuristic=True):
     domain[0] = pddl_types, domain[1] = pddl_constants, domain[2] = pddl_predicates, domain[3] = pddl_actions
     problem[0] = pddl_objects, problem[1] = pddl_init_exp, problem[2] = pddl_goal_exp
     '''
-    # merge domain constants and problem objects
-    world_sets = merge_dictionaries(domain[1], problem[0])
-
-    # add the "all objects" set with key "" to world_sets
-    all_objects = []
-    for value in world_sets.values():
-        all_objects.extend(value)
-    world_sets[""] = all_objects
-    print("WORLD SETS: %s" % world_sets)
+    # get the sets variable required to make a n initial world
+    world_sets = build_world_sets(domain[1], problem[0])
 
     # get all expanded expressions for all actions
     expanded_expressions = []
@@ -116,23 +130,17 @@ def plan(domain, problem, useheuristic=True):
         substitutions_per_action = []
         # for each group of params of the same type for this action
         for parameter_type in action.parameters:
-            #print("Action: %s - Param Type: %s - Params: %s" % (action.name, parameter_type, action.parameters[parameter_type]))
+            logger.debug("Action: %s - Param Type: %s - Params: %s" % (action.name, parameter_type, action.parameters[parameter_type]))
             # for each param in each group of params of the same type for this action
             for parameter in action.parameters[parameter_type]:
                 substitutions_per_param = []
                 # for each ground param as taken from world_sets based on type
                 for ground_param in world_sets[parameter_type]:
-                    #print("\tParam: %s, Ground Param: %s" % (parameter, ground_param))
+                    logger.debug("\tParam: %s, Ground Param: %s" % (parameter, ground_param))
                     substitutions_per_param.append([parameter, ground_param])
                 substitutions_per_action.append(substitutions_per_param)
-
         # expand the action with all possible substitutions
-        print("substitutions_per_action: %s" % substitutions_per_action)
         expanded_expressions.extend(expand_action(action, substitutions_per_action))
-
-    #print()
-    #for expression in expanded_expressions:
-    #    print("EXP: %s" % expression)
 
     # create the initial world with pddl_init_exp and world_sets and the start node for astar
     world = expressions.make_world(problem[1], world_sets)
