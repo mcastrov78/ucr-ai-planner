@@ -31,12 +31,10 @@ def get_stack_from_pddl(fname):
     stack = []
     with open(fname) as file:
         # remove comment lines
-        fileContentNoComments = re.sub(r';.*$', '', file.read(), flags=re.MULTILINE).lower()
-        logger.debug("fileContentNoComments: %s" % fileContentNoComments);
+        file_content_no_comments = re.sub(r';.*$', '', file.read(), flags=re.MULTILINE).lower()
 
         # tokenize
-        for token in re.findall(r'[()]|[^\s()]+', fileContentNoComments):
-            logger.debug(token)
+        for token in re.findall(r'[()]|[^\s()]+', file_content_no_comments):
             if token == ")":
                 list = []
                 popped_token = stack.pop()

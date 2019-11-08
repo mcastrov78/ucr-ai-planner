@@ -61,7 +61,7 @@ class ExpressionNode(Node):
         # get all atoms in node's world, order them alphabetically (to guarantee same order), join them and use as Id
         atoms_list = []
         for atom in self.world.atoms:
-            atoms_list.append(atom.__str__());
+            atoms_list.append(str(atom));
         atoms_list.sort()
         self.id = "-".join(atoms_list)
 

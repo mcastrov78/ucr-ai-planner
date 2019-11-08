@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExpandedExpression:
-    """ This class is to hold expanded expressions for the actions, the action names and the grounded paramters """
+    """ This class is to hold expanded expressions for the actions, the action names and the grounded parameters """
     def __init__(self, name, expression):
         self.name = name
         self.expression = expression
@@ -26,7 +26,7 @@ class ExpandedExpression:
         return self.name + "(" + ", ".join(self.parameters) + ")"
 
     def __str__(self):
-        return self.get_expanded_exp_name() + " - EXP: " + self.expression.__str__()
+        return self.get_expanded_exp_name() + " - EXP: " + str(self.expression)
 
 
 def merge_dictionaries(dict1, dict2):
@@ -39,54 +39,51 @@ def merge_dictionaries(dict1, dict2):
 
 
 def get_all_child_objects(subtypes, world_sets, types):
-    """ Get all child objects for these types and their subtypes recursively """
+    """ Get all child objects for these subtypes and their child subtypes recursively """
     child_objects = []
     for subtype in subtypes:
         if subtype in world_sets:
             # reached a leaf subtype with child objects
             child_objects.extend(world_sets[subtype])
         else:
-            # reached a non-leaf subtype, get all child objects recursively
+            # reached a non-leaf subtype, get all child subtypes and their objects recursively
             child_objects.extend(get_all_child_objects(types[subtype], world_sets, types))
     return child_objects
 
 
 def complete_hierarchy(world_sets, types):
     """ Complete World Sets hierarchy with all child objects for types and their subtypes """
-    logger.debug("WORLD SET: %s" % world_sets)
-    logger.debug("TYPES: %s" % types)
-
     for type, subtypes in types.items():
-        # don't do this for the "" types sets
+        # don't do this for the "" types set, its items are not supertypes
         if len(type) > 0:
             # get all child objects for this type and its subtypes recursively
             all_child_objects = get_all_child_objects(subtypes, world_sets, types)
             logger.debug("Type: %s - Subtype: %s - Children: %s" % (type, subtypes, all_child_objects))
-            # if type is already defined in world sets, add new objects, otherwise expand existing list
+            # if type is already defined in world sets, add new objects found, otherwise expand existing list
             if type in world_sets:
                 world_sets[type].extend(all_child_objects)
             else:
                 world_sets[type] = all_child_objects
-
-    logger.debug("WORLD SET: %s" % world_sets)
     return world_sets
+
 
 def build_world_sets(constants, objects, types):
     """ Build the sets variable required to make an initial world """
-    # merge domain constants and problem objects
+    # merge domain constants and problem objects dictionaries
     world_sets = merge_dictionaries(constants, objects)
+    logger.debug("Initial WORLD SETS: %s" % world_sets)
     # complete constants and objects lists based on types hierarchy
     world_sets = complete_hierarchy(world_sets, types)
 
-    # create and add the "all objects" set with key "" to world_sets
+    # create and add the "all objects" set with key "" to World Sets
     all_objects = []
-    for value in world_sets.values():
-        for subvalue in value:
-            if subvalue not in all_objects:
-                all_objects.append(subvalue)
+    for value_list in world_sets.values():
+        for value in value_list:
+            if value not in all_objects:
+                all_objects.append(value)
     world_sets[""] = all_objects
 
-    logger.debug("WORLD SETS: %s" % world_sets)
+    logger.debug("Final WORLD SETS: %s" % world_sets)
     return world_sets
 
 
