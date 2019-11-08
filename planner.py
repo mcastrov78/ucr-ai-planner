@@ -86,7 +86,7 @@ def build_world_sets(constants, objects, types):
                 all_objects.append(subvalue)
     world_sets[""] = all_objects
 
-    logger.info("WORLD SETS: %s" % world_sets)
+    logger.debug("WORLD SETS: %s" % world_sets)
     return world_sets
 
 
@@ -145,6 +145,10 @@ def plan(domain, problem, useheuristic=True):
        - visited is the total number of nodes that were added to the frontier during the execution of the algorithm 
        - expanded is the total number of nodes that were expanded (i.e. whose neighbors were added to the frontier)
     """
+    '''
+    domain[0] = pddl_types, domain[1] = pddl_constants, domain[2] = pddl_predicates, domain[3] = pddl_actions
+    problem[0] = pddl_objects, problem[1] = pddl_init_exp, problem[2] = pddl_goal_exp
+    '''
     def heuristic(state, action):
         return pathfinding.default_heuristic
         
@@ -152,10 +156,6 @@ def plan(domain, problem, useheuristic=True):
         goal = expressions.make_expression(problem[2])
         return state.world.models(goal)
 
-    '''
-    domain[0] = pddl_types, domain[1] = pddl_constants, domain[2] = pddl_predicates, domain[3] = pddl_actions
-    problem[0] = pddl_objects, problem[1] = pddl_init_exp, problem[2] = pddl_goal_exp
-    '''
     # get the sets variable required to make a n initial world
     world_sets = build_world_sets(domain[1], problem[0], domain[0])
 
