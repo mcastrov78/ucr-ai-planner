@@ -63,6 +63,7 @@ class ExpressionNode(Node):
         for atom in self.world.atoms:
             atoms_list.append(str(atom));
         atoms_list.sort()
+        #self.id = hash("-".join(atoms_list))
         self.id = "-".join(atoms_list)
 
     def get_id(self):
@@ -76,6 +77,18 @@ class ExpressionNode(Node):
             if (len(additions) + len(deletions)) > 0:
                 target_node = ExpressionNode(self.world.apply(action.expression), self.actions)
                 neighbors.append(Edge(target_node, 1, action.get_expanded_exp_name()))
+        #print("neighbors: %s" % ", ".join(neighbor.name for neighbor in neighbors))
+        return neighbors
+
+    def get_relaxed_neighbors(self):
+        neighbors = []
+        for action in self.actions:
+            # for each expanded action a valid neighbor will be one that causes changes to the world
+            additions, deletions = action.expression.get_changes(self.world)
+            if len(additions) > 0:
+                target_node = ExpressionNode(self.world.apply_relaxed(action.expression), self.actions)
+                neighbors.append(Edge(target_node, 1, action.get_expanded_exp_name()))
+        #print("neighbors: %s" % ", ".join(neighbor.name for neighbor in neighbors))
         return neighbors
 
 

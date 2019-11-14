@@ -22,6 +22,19 @@ class World:
 
         return World(new_atoms, new_sets)
 
+
+    def apply_relaxed(self, effect):
+        # get deep copies of the atoms and sets for the new world
+        new_atoms = copy.deepcopy(self.atoms)
+        new_sets = copy.deepcopy(self.sets)
+
+        # apply ONLY additions caused by the effect to atoms in new world
+        changes = effect.get_changes(self)
+        new_atoms = new_atoms.union(changes[0])
+
+        return World(new_atoms, new_sets)
+
+
     def __str__(self):
         atoms_str = ", ".join("%s" % atom for atom in self.atoms)
         return atoms_str
@@ -97,6 +110,8 @@ class Atom(LogicalFormula):
         parameters = ", ".join("%s" % parameter for parameter in self.elements[1])
         return "%s(%s)" % (self.elements[0], parameters)
 
+    __repr__ = __str__
+    
     def __eq__(self, other):
         return self.elements[0] == other.elements[0] and \
                self.elements[1] == other.elements[1]

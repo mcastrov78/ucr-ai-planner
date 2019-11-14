@@ -3,7 +3,8 @@ import pddl
 import graph
 import expressions
 import pathfinding
-import sys 
+import sys
+import copy
 import logging
 import logging.config
 
@@ -146,8 +147,41 @@ def plan(domain, problem, useheuristic=True):
     domain[0] = pddl_types, domain[1] = pddl_constants, domain[2] = pddl_predicates, domain[3] = pddl_actions
     problem[0] = pddl_objects, problem[1] = pddl_init_exp, problem[2] = pddl_goal_exp
     '''
-    def heuristic(state, action):
-        return pathfinding.default_heuristic
+    def heuristic(state, next_action):
+        if next_action:
+            print("\tAction: %s" % next_action.name)
+        if state:
+            print("\tState: %s" % state.get_id())
+
+        if isgoal(state):
+            print("\t*** IS GOAL ***")
+
+        # where in the planning graph we are
+        t = 0
+        # from here on the initial state is the future state where action takes us
+        f = copy.deepcopy(state)
+        # extend one action layer and proposition layer at a time
+        while not isgoal(f):
+            # increase layer index
+            t += 1
+            # compute next action layer
+            next_actions = f.get_relaxed_neighbors()
+            next_layer_atoms = f.world.atoms
+            print("\tRPG next actions (%s): %s" % (t, ", ".join(neighbor.name for neighbor in next_actions)))
+            for next_action in next_actions:
+                print("\t\tRPG next node: %s" % next_action.target.get_id())
+                #print("\t\t\tRPG next nodes world.atoms: %s" % next_action.target.world.atoms)
+                next_layer_atoms = next_layer_atoms.union(next_action.target.world.atoms)
+
+            if f.world.atoms.issuperset(next_layer_atoms):
+                break
+            else:
+                f.world.atoms = next_layer_atoms
+
+        print("\t* RPG world.atoms: %s" % f.world.atoms)
+        if isgoal(f):
+            print("\t* RPG GOAL")
+        return 0
         
     def isgoal(state):
         goal = expressions.make_expression(problem[2])

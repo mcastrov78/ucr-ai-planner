@@ -71,7 +71,7 @@ def astar(start, heuristic, goal):
         5 - edge: edge that led to current node
     '''
     # push start node to the priority queue
-    heapq.heappush(open_list, (heuristic(start, None), i, start, 0, None, None))
+    heapq.heappush(open_list, (0, i, start, 0, None, None))
 
     # while there are nodes to expand
     while len(open_list) > 0:
@@ -79,7 +79,7 @@ def astar(start, heuristic, goal):
         current_node_info = heapq.heappop(open_list)
         current_node = current_node_info[2]
         closed_list.append(current_node)
-        logger.debug("*** CURRENT NODE: %s" % current_node.get_id())
+        print("*** CURRENT NODE: %s" % current_node.get_id())
         logger.debug("accumulated cost: %s" % current_node_info[3])
 
         # check if current node is the goal AND that it was the lowest value in the queue
@@ -97,10 +97,10 @@ def astar(start, heuristic, goal):
 
             # f = accumulated cost + edge cost + h
             accumulated_cost = current_node_info[3] + edge.cost
-            f = accumulated_cost + heuristic(edge.target, edge)
-            logger.debug("neighbor: %s -> gn:%s g:%s h:%s f:%s i:%s" % (edge.name, edge.cost,
-                                                                         current_node_info[3] + edge.cost,
-                                                                         heuristic(edge.target, edge), f, i))
+            h = heuristic(edge.target, edge)
+            f = accumulated_cost + h
+            print("neighbor: %s -> gn:%s g:%s h:%s f:%s i:%s" % (edge.name, edge.cost, current_node_info[3] + edge.cost,
+                                                                 h, f, i))
 
             # check if neighbor is NOT in closed list
             if edge.target not in closed_list:
