@@ -10,7 +10,7 @@ class World:
     def models(self, expression):
         return expression.is_modeled_by(self)
 
-    def apply(self, effect):
+    def apply(self, effect, relaxed=False):
         # get deep copies of the atoms and sets for the new world
         new_atoms = copy.deepcopy(self.atoms)
         new_sets = copy.deepcopy(self.sets)
@@ -18,22 +18,11 @@ class World:
         # apply additions and deletions caused by the effect to atoms in new world
         changes = effect.get_changes(self)
         new_atoms = new_atoms.union(changes[0])
-        new_atoms = new_atoms.difference(changes[1])
+        # for the relaxed version do not consider Delete Lists
+        if not relaxed:
+            new_atoms = new_atoms.difference(changes[1])
 
         return World(new_atoms, new_sets)
-
-
-    def apply_relaxed(self, effect):
-        # get deep copies of the atoms and sets for the new world
-        new_atoms = copy.deepcopy(self.atoms)
-        new_sets = copy.deepcopy(self.sets)
-
-        # apply ONLY additions caused by the effect to atoms in new world
-        changes = effect.get_changes(self)
-        new_atoms = new_atoms.union(changes[0])
-
-        return World(new_atoms, new_sets)
-
 
     def __str__(self):
         atoms_str = ", ".join("%s" % atom for atom in self.atoms)
@@ -63,6 +52,8 @@ class Constant(LogicalFormula):
 
     def __str__(self):
         return self.value
+
+    __repr__ = __str__
 
     def __eq__(self, other):
         return self.value == other

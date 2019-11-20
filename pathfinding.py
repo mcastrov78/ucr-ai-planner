@@ -79,7 +79,7 @@ def astar(start, heuristic, goal):
         current_node_info = heapq.heappop(open_list)
         current_node = current_node_info[2]
         closed_list.append(current_node)
-        print("*** CURRENT NODE: %s" % current_node.get_id())
+        #print("*** CURRENT NODE: %s" % current_node.get_id())
         print("*** PRECEDING ACTION: %s" % (current_node_info[5].name if current_node_info[5] else "-"))
         logger.debug("accumulated cost: %s" % current_node_info[3])
 
@@ -98,7 +98,6 @@ def astar(start, heuristic, goal):
 
             # f = accumulated cost + edge cost + h
             accumulated_cost = current_node_info[3] + edge.cost
-            print("\tneighbor: %s" % edge.name)
             h = heuristic(edge.target, edge)
             f = accumulated_cost + h
             print("\t/neighbor: %s -> gn:%s g:%s h:%s f:%s i:%s" % (edge.name, edge.cost, current_node_info[3] + edge.cost, h, f, i))

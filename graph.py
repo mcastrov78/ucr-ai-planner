@@ -23,6 +23,11 @@ class Edge:
         self.cost = cost
         self.name = name
 
+    def __str__(self):
+        return self.name
+
+    __repr__ = __str__
+
 class GeomNode(Node):
     """
     Representation of a finite graph in which all nodes are kept in memory at all times, and stored in the node's neighbors field.
@@ -54,9 +59,10 @@ class InfNode(Node):
 
 class ExpressionNode(Node):
     """ Node for logical expression to resolve planing problems in PDDL files """
-    def __init__(self, world, actions):
+    def __init__(self, world, actions, preceding_action):
         self.world = world
         self.actions = actions
+        self.preceding_action = preceding_action
 
         # get all atoms in node's world, order them alphabetically (to guarantee same order), join them and use as Id
         atoms_list = []
@@ -69,24 +75,17 @@ class ExpressionNode(Node):
     def get_id(self):
         return self.id
 
-    def get_neighbors(self):
+    def get_neighbors(self, relaxed=False):
         neighbors = []
         for action in self.actions:
             # for each expanded action a valid neighbor will be one that causes changes to the world
             additions, deletions = action.expression.get_changes(self.world)
-            if (len(additions) + len(deletions)) > 0:
-                target_node = ExpressionNode(self.world.apply(action.expression), self.actions)
-                neighbors.append(Edge(target_node, 1, action.get_expanded_exp_name()))
-        #print("neighbors: %s" % ", ".join(neighbor.name for neighbor in neighbors))
-        return neighbors
-
-    def get_relaxed_neighbors(self):
-        neighbors = []
-        for action in self.actions:
-            # for each expanded action a valid neighbor will be one that causes changes to the world
-            additions, deletions = action.expression.get_changes(self.world)
-            if len(additions) > 0:
-                target_node = ExpressionNode(self.world.apply_relaxed(action.expression), self.actions)
+            changes = len(additions)
+            # for the relaxed version do not consider Delete Lists
+            if not relaxed:
+                changes += len(deletions)
+            if changes > 0:
+                target_node = ExpressionNode(self.world.apply(action.expression, relaxed), self.actions, action)
                 neighbors.append(Edge(target_node, 1, action.get_expanded_exp_name()))
         #print("neighbors: %s" % ", ".join(neighbor.name for neighbor in neighbors))
         return neighbors
