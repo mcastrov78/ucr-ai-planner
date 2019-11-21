@@ -174,7 +174,6 @@ def plan(domain, problem, useheuristic=True):
         
         return extract_plan_size(relaxed_plan)
 
-
     def extract_plan_size(rpg):
         goal = expressions.make_expression(problem[2])
         final_state = rpg[len(rpg) - 1][1]
@@ -189,7 +188,7 @@ def plan(domain, problem, useheuristic=True):
 
         # backtrack starting on the last proposition layer we need to consider
         for i in range(first_goal_levels_max, 0, -1):
-            #print("BACKTRACKING i: %s" % i)
+            logger.debug("BACKTRACKING i: %s" % i)
             if i in first_goal_levels:
                 first_goal_levels = get_first_action_levels(rpg, first_goal_levels, i)
 
@@ -220,7 +219,7 @@ def plan(domain, problem, useheuristic=True):
                     break
                 level += 1
 
-        #print("\tGoal Levels: %s" % first_goal_levels)
+        logger.debug("\tGoal Levels: %s" % first_goal_levels)
         return first_goal_levels
 
     def get_first_action_levels(rpg, first_goal_levels, layer):
@@ -240,13 +239,13 @@ def plan(domain, problem, useheuristic=True):
                             action_levels[level] = [action]
 
                         preconditions = action.target.preceding_action.expression.operands[0]
-                        #print("\tACTION: %s" % action.name)
-                        #print("\tPRECONS: %s" % preconditions)
+                        logger.debug("\tACTION: %s" % action.name)
+                        logger.debug("\tPRECONS: %s" % preconditions)
                         first_goal_levels = get_first_goal_levels(rpg, preconditions, first_goal_levels)
                         break
                 level += 1
 
-        #print("\tAction Levels: %s" % action_levels)
+        logger.debug("\tAction Levels: %s" % action_levels)
         return first_goal_levels
         
     def isgoal(state):
