@@ -69,7 +69,6 @@ class ExpressionNode(Node):
         for atom in self.world.atoms:
             atoms_list.append(str(atom));
         atoms_list.sort()
-        #self.id = hash("-".join(atoms_list))
         self.id = "-".join(atoms_list)
 
     def get_id(self):

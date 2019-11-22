@@ -172,7 +172,7 @@ def plan(domain, problem, useheuristic=True):
             props_layer = graph.ExpressionNode(new_world, props_layer.actions, props_layer.preceding_action)
             # add new actions and props layer to relaxed plan
             relaxed_plan_graph.append([actions_layer, props_layer])
-        
+
         # extract relaxed plan size and return it as the heuristic value
         return extract_plan_size(relaxed_plan_graph)
 
@@ -186,16 +186,19 @@ def plan(domain, problem, useheuristic=True):
             return 1000
 
         # find the layer where each sub-goal appears for the first time on the relaxed planning graph
-        first_goal_levels = get_first_goal_levels(rpg, goal, {})
+        first_goal_levels = {}
+        add_first_goal_levels(rpg, goal, first_goal_levels)
         # obtain maximum level number where a goal was found
         first_goal_levels_max = max(first_goal_levels.keys())
 
         # backtrack starting on the last proposition layer we need to consider
+        logger.debug("Goal Levels: %s" % first_goal_levels)
         for i in range(first_goal_levels_max, 0, -1):
             logger.debug("BACKTRACKING i: %s" % i)
             # if there is at least one sub-goal on level i
             if i in first_goal_levels:
-                first_goal_levels = get_first_action_levels(rpg, first_goal_levels, i)
+                add_first_action_levels(rpg, first_goal_levels, i)
+        logger.debug("Action-Goal Levels: %s" % first_goal_levels)
 
         h = 0
         for layer, actions in first_goal_levels.items():
@@ -203,7 +206,7 @@ def plan(domain, problem, useheuristic=True):
 
         return h
 
-    def get_first_goal_levels(rpg, goal, first_goal_levels):
+    def add_first_goal_levels(rpg, goal, first_goal_levels):
         """Find the layer where each sub-goal appears for the first time on the relaxed planning graph"""
         # handle special case when the goal is not a conjunction of atoms, but one atom
         if isinstance(goal, expressions.Atom):
@@ -224,10 +227,7 @@ def plan(domain, problem, useheuristic=True):
                     break
                 level += 1
 
-        logger.debug("\tGoal Levels: %s" % first_goal_levels)
-        return first_goal_levels
-
-    def get_first_action_levels(rpg, first_goal_levels, layer):
+    def add_first_action_levels(rpg, first_goal_levels, layer):
         """Find the layer where each action whose effect is a sub-goal appears for the first time on the relaxed
         planning graph. Then consider its preconditions as new sub-goals and add them to preceding layers of
         first_goal_levels that will eventually be reached by the backtracking process to also process their
@@ -247,11 +247,10 @@ def plan(domain, problem, useheuristic=True):
                         logger.debug("\tACTION: %s" % action.name)
                         logger.debug("\tPRECONS: %s" % preconditions)
                         # find the layer where each sub-goal appears for the first time on the relaxed planning graph
-                        first_goal_levels = get_first_goal_levels(rpg, preconditions, first_goal_levels)
+                        add_first_goal_levels(rpg, preconditions, first_goal_levels)
                         # break to guarantee we always only use only the first appearance
                         break
                 level += 1
-        return first_goal_levels
         
     def isgoal(state):
         """Check is goal is reached"""
@@ -281,6 +280,7 @@ def plan(domain, problem, useheuristic=True):
         expanded_expressions.extend(expand_action(action, substitutions_per_action))
 
     # create the initial world with pddl_init_exp and world_sets and the start node for astar
+    logger.info("Grounded Actions: %s" % len(expanded_expressions))
     world = expressions.make_world(problem[1], world_sets)
     start = graph.ExpressionNode(world, expanded_expressions, None)
 
