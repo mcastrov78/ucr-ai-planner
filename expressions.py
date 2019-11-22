@@ -1,6 +1,3 @@
-import copy
-
-
 class World:
     """ Represents the world """
     def __init__(self, atoms, sets):
@@ -12,8 +9,8 @@ class World:
 
     def apply(self, effect, relaxed=False):
         # get deep copies of the atoms and sets for the new world
-        new_atoms = copy.deepcopy(self.atoms)
-        new_sets = copy.deepcopy(self.sets)
+        new_atoms = set(self.atoms)
+        new_sets = dict(self.sets)
 
         # apply additions and deletions caused by the effect to atoms in new world
         changes = effect.get_changes(self)
@@ -544,10 +541,10 @@ def my_tests():
     print("New World: %s" % new_world)
     print("World: %s" % world)
 
-    for atom in new_world.atoms:
-        atom.elements = ["x", "y"]
-    print("New World: %s" % new_world)
-    print("World: %s" % world)
+    #for atom in new_world.atoms:
+    #    atom.elements = ["x", "y"]
+    #print("New World: %s" % new_world)
+    #print("World: %s" % world)
 
     change = make_expression(("on", "a", "d"))
     print("\nExpression change: %s" % change)
