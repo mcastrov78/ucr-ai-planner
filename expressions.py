@@ -8,7 +8,7 @@ class World:
         return expression.is_modeled_by(self)
 
     def apply(self, effect, relaxed=False):
-        # get deep copies of the atoms and sets for the new world
+        # create a new atoms set and a new sets dictionary for the new world
         new_atoms = set(self.atoms)
         new_sets = dict(self.sets)
 
