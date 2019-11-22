@@ -1,5 +1,6 @@
 import re
 import sys
+import expressions
 import logging
 import logging.config
 
@@ -93,7 +94,7 @@ def parse_domain(fname):
     The return value of this function is passed to planner.plan, and does not have to follow any particular format
     """
     stack = get_stack_from_pddl(fname)
-    pddl_types = []
+    pddl_types = {}
     pddl_constants = {}
     pddl_predicates = {}
     pddl_actions = []
@@ -171,7 +172,7 @@ def parse_problem(fname):
     logger.info("PDDL Init: %s" % pddl_init_exp)
     logger.info("PDDL Goal: %s" % pddl_goal_exp)
 
-    return pddl_objects, pddl_init_exp, pddl_goal_exp
+    return pddl_objects, pddl_init_exp, expressions.make_expression(pddl_goal_exp)
     
     
 if __name__ == "__main__":
